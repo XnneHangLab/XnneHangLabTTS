@@ -32,13 +32,17 @@ dev = [
 ]
 
 cpu = [
-  "torch==2.6",
-  "torchaudio==2.6",
+  "torch @ https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
+  "torchaudio @ https://download.pytorch.org/whl/cpu/torchaudio-2.6.0%2Bcpu-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
+  "torch @ https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
+  "torchaudio @ https://download.pytorch.org/whl/cpu/torchaudio-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
 ]
 
 gpu = [
-  "torch==2.6",
-  "torchaudio==2.6",
+  "torch @ https://download.pytorch.org/whl/cu118/torch-2.6.0%2Bcu118-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
+  "torchaudio @ https://download.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
+  "torch @ https://download.pytorch.org/whl/cu118/torch-2.6.0%2Bcu118-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
+  "torchaudio @ https://download.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
 ]
 
 genie-tts = [
@@ -68,26 +72,6 @@ qwen-tts = [
 
 [tool.uv]
 default-groups = ["base", "dev"]
-
-[[tool.uv.index]]
-name = "pytorch-cu118"
-url = "https://download.pytorch.org/whl/cu118"
-explicit = true
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
-]
-torchaudio = [
-  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
-]
 
 [tool.ruff]
 line-length = 120
