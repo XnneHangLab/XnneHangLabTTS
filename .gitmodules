@@ -1,0 +1,4 @@
+[submodule "packages/Genie-TTS"]
+	path = packages/Genie-TTS
+	url = https://github.com/XnneHangLab/Genie-TTS.git
+	branch = master
