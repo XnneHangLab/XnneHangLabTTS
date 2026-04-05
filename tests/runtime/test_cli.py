@@ -87,3 +87,18 @@ def test_inspect_runtime_reports_gpu_backend_contract(monkeypatch, capsys, tmp_p
         "gsv-tts-lite",
         "faster-qwen-tts",
     ]
+
+
+def test_download_emits_failed_event_for_unsupported_target(
+    monkeypatch, capsys, tmp_path: Path
+):
+    config_path = _write_runtime_config(tmp_path)
+    monkeypatch.setenv("XH_RUNTIME_CONFIG", str(config_path))
+
+    exit_code = main(["download", "bad-target"])
+
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert exit_code == 1
+    assert payload["kind"] == "event"
+    assert payload["payload"]["event"] == "download.failed"
+    assert payload["payload"]["target"] == "bad-target"

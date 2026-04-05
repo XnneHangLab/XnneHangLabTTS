@@ -76,8 +76,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "download":
         _, paths = load_runtime_config(_config_path_from_env())
         ensure_managed_dirs(paths)
-        target = get_download_target(args.target, paths)
         try:
+            target = get_download_target(args.target, paths)
             resource = download_target_bundle(target=target, emit=emit_event)
         except Exception as error:
             emit_event(
