@@ -34,3 +34,24 @@ def test_inspect_environment_reports_cpu_when_torch_import_fails():
     assert result.torch_available is False
     assert result.cuda_available is False
     assert result.issues == ["torch import failed: torch missing"]
+
+
+class FakeCudaRaises:
+    def is_available(self) -> bool:
+        raise RuntimeError("cuda probe failed")
+
+
+class FakeTorchCudaProbeFails:
+    def __init__(self):
+        self.__version__ = "2.6.0+cu118"
+        self.cuda = FakeCudaRaises()
+
+
+def test_inspect_environment_falls_back_to_cpu_when_cuda_probe_raises():
+    result = inspect_environment(lambda: FakeTorchCudaProbeFails())
+
+    assert result.mode == "cpu"
+    assert result.torch_available is True
+    assert result.cuda_available is False
+    assert result.torch_version == "2.6.0+cu118"
+    assert result.issues == ["torch cuda probe failed: cuda probe failed"]

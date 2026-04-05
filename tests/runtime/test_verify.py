@@ -64,3 +64,18 @@ def test_verify_target_returns_ready_when_all_required_paths_exist(tmp_path: Pat
 
     assert result.status == "ready"
     assert result.missing_paths == []
+
+
+def test_verify_target_reports_partial_when_required_file_path_is_directory(tmp_path: Path):
+    _, paths = load_runtime_config(_write_runtime_config(tmp_path))
+    target = get_download_target("genie-base", paths)
+    target.resource_root.mkdir(parents=True, exist_ok=True)
+    (target.resource_root / "speaker_encoder.onnx").mkdir(parents=True, exist_ok=True)
+    (target.resource_root / "chinese-hubert-base").mkdir(parents=True, exist_ok=True)
+    (target.resource_root / "G2P" / "EnglishG2P").mkdir(parents=True, exist_ok=True)
+    (target.resource_root / "G2P" / "ChineseG2P").mkdir(parents=True, exist_ok=True)
+
+    result = verify_target(target)
+
+    assert result.status == "partial"
+    assert result.missing_paths == ["speaker_encoder.onnx"]

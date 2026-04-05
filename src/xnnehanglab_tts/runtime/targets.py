@@ -10,6 +10,12 @@ GENIE_BASE_REQUIRED_PATHS = [
     "G2P/EnglishG2P",
     "G2P/ChineseG2P",
 ]
+GENIE_BASE_REQUIRED_FILE_PATHS = ["speaker_encoder.onnx"]
+GENIE_BASE_REQUIRED_DIR_PATHS = [
+    "chinese-hubert-base",
+    "G2P/EnglishG2P",
+    "G2P/ChineseG2P",
+]
 
 
 def build_managed_paths(paths: RuntimePaths) -> list[ManagedPath]:
@@ -40,4 +46,6 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
         cache_dir=paths.modelscope_cache_root,
         resource_root=paths.genie_data_dir,
         required_paths=GENIE_BASE_REQUIRED_PATHS,
+        required_file_paths=GENIE_BASE_REQUIRED_FILE_PATHS,
+        required_dir_paths=GENIE_BASE_REQUIRED_DIR_PATHS,
     )

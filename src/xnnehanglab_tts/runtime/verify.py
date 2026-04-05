@@ -12,9 +12,20 @@ def verify_target(target) -> ResourceState:
         )
 
     missing_paths: list[str] = []
-    for relative_path in target.required_paths:
-        if not (target.resource_root / relative_path).exists():
-            missing_paths.append(relative_path)
+    required_file_paths = list(getattr(target, "required_file_paths", []))
+    required_dir_paths = list(getattr(target, "required_dir_paths", []))
+
+    if required_file_paths or required_dir_paths:
+        for relative_path in required_file_paths:
+            if not (target.resource_root / relative_path).is_file():
+                missing_paths.append(relative_path)
+        for relative_path in required_dir_paths:
+            if not (target.resource_root / relative_path).is_dir():
+                missing_paths.append(relative_path)
+    else:
+        for relative_path in target.required_paths:
+            if not (target.resource_root / relative_path).exists():
+                missing_paths.append(relative_path)
 
     if not missing_paths:
         status = "ready"

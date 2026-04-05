@@ -8,6 +8,8 @@ from xnnehanglab_tts.runtime.models import CliEnvelope, RuntimeInspection, Verif
 from xnnehanglab_tts.runtime.targets import build_managed_paths, get_download_target
 from xnnehanglab_tts.runtime.verify import verify_target
 
+SUPPORTED_VERIFY_TARGETS = ("genie-base",)
+
 
 def _config_path_from_env() -> Path | None:
     value = os.getenv("XH_RUNTIME_CONFIG")
@@ -45,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("inspect-runtime")
     verify_parser = subparsers.add_parser("verify")
-    verify_parser.add_argument("target")
+    verify_parser.add_argument("target", choices=SUPPORTED_VERIFY_TARGETS)
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("target")
     return parser

@@ -21,10 +21,17 @@ def inspect_environment(torch_loader: Callable[[], Any] | None = None) -> Enviro
             issues=[f"torch import failed: {error}"],
         )
 
-    cuda_available = bool(getattr(torch, "cuda", None) and torch.cuda.is_available())
+    issues: list[str] = []
+    cuda_available = False
+    try:
+        cuda_available = bool(getattr(torch, "cuda", None) and torch.cuda.is_available())
+    except Exception as error:  # pragma: no cover - defensive for runtime probe failures
+        issues.append(f"torch cuda probe failed: {error}")
+
     return EnvironmentState(
         mode="gpu" if cuda_available else "cpu",
         torch_available=True,
         torch_version=str(getattr(torch, "__version__", "unknown")),
         cuda_available=cuda_available,
+        issues=issues,
     )

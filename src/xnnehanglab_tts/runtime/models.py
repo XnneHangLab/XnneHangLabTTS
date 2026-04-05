@@ -74,3 +74,5 @@ class DownloadTargetSpec(RuntimeBaseModel):
     cache_dir: Path
     resource_root: Path
     required_paths: list[str]
+    required_file_paths: list[str] = Field(default_factory=list)
+    required_dir_paths: list[str] = Field(default_factory=list)
