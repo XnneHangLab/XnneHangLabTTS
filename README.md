@@ -4,15 +4,15 @@
   </a>
 </p>
 
-<h1 align="center">XnneHangLabTTS</h1>
+<h1 align="center">绘心 Voice</h1>
 
 <p align="center">
-  来自 <a href="https://github.com/XnneHangLab/XnneHangLab">XnneHangLab</a> 的轻量级 TTS 展示仓库
+  来自 <a href="https://github.com/XnneHangLab/XnneHangLab">XnneHangLab</a> 的语音产品仓库
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/语言-中文优先-blue" />
-  <img src="https://img.shields.io/badge/WebUI-Gradio-orange" />
+  <img src="https://img.shields.io/badge/TTS-GSV--Lite%20%7C%20Genie--TTS%20%7C%20faster--qwen--tts-orange" />
   <img src="https://img.shields.io/badge/运行方式-uv%20%7C%20docker%20%7C%20conda-6f42c1" />
   <img src="https://img.shields.io/badge/状态-WIP-ff69b4" />
 </p>
@@ -20,47 +20,55 @@
 ---
 
 > [!NOTE]
-> XnneHangLabTTS 专注做一件事：
-> 用更轻的仓库结构，快速展示和对比多个 TTS 后端。
+> 这个仓库现在不再负责桌面启动器本身。
 >
-> 当前计划展示的后端：
-> - GSV-Lite
-> - Genie-TTS
-> - faster-qwen-tts
+> 启动器与桌面壳层将放在独立仓库中继续演进；
+> 而当前仓库收敛为语音产品本体，聚焦 TTS 能力、资源组织、后端适配与运行分发。
+
+> [!TIP]
+> 当前方向可以理解为：
+>
+> - [HuixinLauncherTemplate](https://github.com/XnneHangLab/HuixinLauncherTemplate) 负责桌面启动器 / Launcher
+> - 绘心 Voice 负责语音产品本体
+>
+> 两者分离开发，后续由启动器接入本仓库能力。
 
 ## 项目定位
 
-这个仓库是从 [XnneHangLab](https://github.com/XnneHangLab/XnneHangLab) 中拆出来的轻量展示版本。
+绘心 Voice 是一个聚焦语音生成与展示体验的产品仓库。
 
-它不会一开始就承载完整 Agent、复杂对话链路、Live2D 联动和整套系统集成，而是先把最容易看到成果的部分单独做好：
+它当前主要负责：
 
-- 更轻的启动方式
-- 更直观的 Gradio 推理界面
-- 更统一的 TTS 后端展示体验
-- 更容易分发的打包与部署方式
+- 多个 TTS 后端的统一接入
+- 角色语音资源组织
+- provider 适配层
+- 运行时依赖与分发方式整理
+- 用更轻的方式展示和验证语音能力
 
-## 我们要做什么
+启动器、桌面壳层、exe 入口不再作为这个仓库的核心职责。
 
-这个仓库会围绕三部分构建：
+## 当前目标
 
-### 1. 启动管理器
+当前仓库聚焦三件事：
+
+### 1. TTS 后端统一接入
+
+支持并整理这些后端：
+
+- GSV-Lite
+- Genie-TTS
+- faster-qwen-tts
+
+### 2. 语音资源与推理体验
 
 负责：
-- 环境检查
-- 启动模式选择
-- 资源与依赖检查
-- 一键拉起 WebUI / 服务
 
-### 2. Gradio WebUI
+- 角色 / 情绪 / 风格资源组织
+- provider 参数收敛
+- 统一调用入口
+- 生成与试听体验
 
-负责：
-- 选择 TTS 后端
-- 选择角色 / 风格
-- 输入文本
-- 生成并试听音频
-- 展示不同后端的效果差异
-
-### 3. 打包与部署
+### 3. 运行与分发
 
 支持三种方式：
 
@@ -68,22 +76,30 @@
 - `docker`
 - `conda`
 
-当前建议顺序：
+并逐步明确：
 
-1. `uv`：本地开发与最快启动
-2. `docker`：复现和部署
-3. `conda`：作为兼容性方案保留
+- CPU 版本怎么装
+- GPU 版本怎么装
+- 模型如何按需下载
 
-## 为什么单独做这个仓库
+## 为什么这样拆分
 
-主仓库 [XnneHangLab](https://github.com/XnneHangLab/XnneHangLab) 的目标更完整，也更复杂。
+> [!IMPORTANT]
+> 语音产品本体和桌面启动器不是一个层级的问题。
+>
+> 把它们拆开后会更清楚：
+>
+> - 本仓库专心做语音能力
+> - 启动器仓库专心做桌面入口
+> - 后续可以分别迭代，不互相拖累
 
-而 XnneHangLabTTS 更适合做这些事情：
+这意味着当前仓库更像：
 
-- 快速展示 TTS 能力
-- 对比不同推理后端
-- 给新用户更低门槛的体验入口
-- 给传播、演示、录视频、做整合包提供更轻的基础仓库
+- Voice product repository
+- TTS runtime repository
+- provider integration repository
+
+而不是 Launcher 仓库。
 
 ## 计划支持的后端
 
@@ -91,17 +107,17 @@
 - Genie-TTS
 - faster-qwen-tts
 
-后续会通过统一的 provider 适配层来组织调用方式，而不是让前端直接耦合到具体实现。
+后续会通过统一的 provider 适配层来组织调用方式，而不是让上层直接耦合到具体实现。
 
 ## 第一阶段目标
 
-第一阶段先做最小可用版本：
+第一阶段先把这些事情做稳：
 
-- 启动管理器
-- Gradio WebUI
-- 统一的 provider 适配层
+- provider 适配层
 - 基础 voices 资源组织
 - `uv / docker / conda` 三种运行方式
+- CPU / GPU 安装策略区分
+- 模型下载职责与运行仓库职责划清
 
 ## 与 XnneHangLab 的关系
 
@@ -109,10 +125,4 @@
 
 - [XnneHangLab](https://github.com/XnneHangLab/XnneHangLab)
 
-如果你想要的是：
-
-- 更轻的仓库
-- 更快的展示效果
-- 更聚焦的 TTS Demo
-
-那这个仓库就是为此准备的。
+如果你想关注语音产品线本身，那当前仓库就是这个方向。

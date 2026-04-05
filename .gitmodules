@@ -2,3 +2,6 @@
 	path = packages/Genie-TTS
 	url = https://github.com/XnneHangLab/Genie-TTS.git
 	branch = master
+[submodule "launcher"]
+	path = launcher
+	url = https://github.com/XnneHangLab/HuixinLauncherTemplate.git
