@@ -25,12 +25,15 @@
 - 不做用户手动切换 CPU/GPU
 - 不做 WebUI 热加载和热拆卸
 - 不做持久化下载队列恢复
+- 不围绕 `environment.gpu.yml` 设计产品主流程
 
 **总体思路**
 
 `launcher/` 作为桌面入口，负责界面、任务操作、日志展示和目录打开。Tauri Rust 负责本地命令调用、子进程生命周期、下载队列执行和事件分发。Python 主仓负责环境检测、目录校验、ModelScope 下载和后续 Gradio 启动壳。
 
 第一阶段不引入常驻 Python 服务，不使用本地 HTTP API。Launcher 通过 Tauri 命令间接调用 Python CLI。这样做可以先把下载和日志链路做稳，第二阶段再用同一条链路接入 `launch-webui`。
+
+Python 依赖管理主路径统一基于根目录 `pyproject.toml` 的 `dependency-groups` 和 `uv`。现有 `environment.gpu.yml` 不作为产品主路径，只保留为过渡参考，不作为 Launcher 或运行时设计的依赖来源。
 
 **子项目拆分**
 
@@ -91,8 +94,17 @@
 - `cache_root`
 - `logs_root`
 - `default_backend = "genie-tts"`
+- `runtime_driver = "uv"`
+- `python_path = ""`
 
 所有路径都基于仓库根目录推导，不写死 Windows 分隔符。这样可以优先打通 Windows，同时尽量避免后续 Linux 兼容时的大规模返工。
+
+其中：
+
+- `runtime_driver` 第一阶段固定只支持 `uv`
+- `python_path` 第一阶段只作为预留配置项，不参与实际执行
+
+这样 Launcher 里可以提前保留一个运行配置入口，但第一阶段不去猜 `.venv/python.exe`、`env/python.exe` 之类的环境目录结构。
 
 ## 环境模式与能力表
 
@@ -100,6 +112,7 @@
 
 识别逻辑：
 
+- 统一通过 `uv run ...` 进入运行时
 - 能导入 `torch`
 - `torch.cuda.is_available()` 为真时，模式为 `gpu`
 - 其他情况都视为 `cpu`
@@ -115,6 +128,8 @@
   - 能力表中保留“后续可扩展全部后端”的标记
 
 这样做的目的，是先把环境识别和下载链路做稳，不在第一阶段把多后端启动混进来。
+
+第一阶段不根据环境目录结构推断 Python 可执行文件位置。无论以后用户实际底层用的是 `uv`、conda 还是其他管理方式，Launcher 在第一阶段都只认 `uv` 这个驱动入口。
 
 ## 下载模型与资源边界
 
@@ -194,6 +209,8 @@
 
 第一阶段不启用本地 HTTP 服务，统一使用 CLI。
 
+Launcher 不直接调用某个猜出来的 `python.exe`。第一阶段统一执行 `uv run ...`，由 `uv` 去定位当前项目环境。
+
 Python 侧提供这几个命令：
 
 - `uv run python -m xnnehanglab_tts.cli inspect-runtime`
@@ -212,10 +229,12 @@ Tauri Rust 侧对前端暴露这几个命令：
 
 1. 前端调用 Tauri 命令
 2. Rust 将任务排入队列或执行即时检查
-3. Rust 启动 Python CLI
+3. Rust 通过 `uv run ...` 启动 Python CLI
 4. Python 输出结构化结果和事件
 5. Rust 转发给前端
 6. 前端更新状态并生成控制台展示
+
+Launcher 设置页或高级页需要预留一个“运行驱动”配置入口，但第一阶段只显示 `uv`，不提供可编辑的多驱动切换。后续如果真的要兼容 conda 或显式 `python_path`，应该新增第二种驱动模式，而不是尝试兼容所有环境目录结构。
 
 ## 事件与日志
 
@@ -280,6 +299,8 @@ Rust 需要同时处理两类输出：
 - 首页状态入口
 
 CPU 下只允许启动 `genie-tts`。GPU 下的 `gsv-tts-lite` 和 `faster-qwen-tts` 只在后续阶段接入，不提前混入第一阶段。
+
+第二阶段如果要启动 `Gradio`，仍然沿用 `uv run ...` 驱动。只有在确认需要支持非 `uv` 运行方式时，才通过 `runtime_driver` 扩展到新模式。
 
 ## 验证策略
 
