@@ -17,7 +17,7 @@ class RuntimeConfig:
 
 
 def default_runtime_config_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "config" / "runtime.toml"
+    return Path.cwd() / "config" / "runtime.toml"
 
 
 def _resolve_child(root: Path, value: str) -> Path:
