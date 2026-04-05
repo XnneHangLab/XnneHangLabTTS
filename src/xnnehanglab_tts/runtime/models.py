@@ -65,6 +65,12 @@ class CliEnvelope(RuntimeBaseModel):
     payload: dict
 
 
+class DownloadStep(RuntimeBaseModel):
+    repo_id: str
+    local_dir: Path
+    allow_file_pattern: list[str] = Field(default_factory=list)
+
+
 class DownloadTargetSpec(RuntimeBaseModel):
     target_id: str
     label: str
@@ -77,3 +83,4 @@ class DownloadTargetSpec(RuntimeBaseModel):
     required_paths: list[str]
     required_file_paths: list[str] = Field(default_factory=list)
     required_dir_paths: list[str] = Field(default_factory=list)
+    download_steps: list[DownloadStep] = Field(default_factory=list)

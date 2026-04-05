@@ -9,6 +9,7 @@ class RuntimePaths:
     genie_base_root: Path
     genie_data_dir: Path
     genie_characters_root: Path
+    gsv_lite_root: Path
     cache_root: Path
     modelscope_cache_root: Path
     logs_root: Path
@@ -28,6 +29,7 @@ def resolve_runtime_paths(
         genie_base_root=genie_base_root,
         genie_data_dir=genie_base_root / "GenieData",
         genie_characters_root=models_root / "genie" / "characters",
+        gsv_lite_root=models_root / "GSVLiteData",
         cache_root=cache_root,
         modelscope_cache_root=cache_root / "modelscope",
         logs_root=logs_root,

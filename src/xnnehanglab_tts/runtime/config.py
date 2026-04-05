@@ -66,6 +66,7 @@ def ensure_managed_dirs(paths: RuntimePaths) -> None:
         paths.models_root,
         paths.genie_base_root,
         paths.genie_characters_root,
+        paths.gsv_lite_root,
         paths.modelscope_cache_root,
         paths.download_logs_root,
     ):
