@@ -20,32 +20,28 @@
 ---
 
 > [!NOTE]
-> 这个仓库现在不再负责桌面启动器本身。
+> 当前仓库不再负责桌面启动器本身。
 >
 > 启动器与桌面壳层将放在独立仓库中继续演进；
 > 而当前仓库收敛为语音产品本体，聚焦 TTS 能力、资源组织、后端适配与运行分发。
 
 > [!TIP]
-> 当前方向可以理解为：
+> 当前产品线可以这样理解：
 >
-> - `HuixinLauncherTemplate` 负责桌面启动器 / Launcher
-> - `绘心 Voice` 负责语音产品本体
+> - [HuixinLauncherTemplate](https://github.com/XnneHangLab/HuixinLauncherTemplate) 负责桌面启动器 / Launcher
+> - 绘心 Voice 负责语音产品本体
 >
 > 两者分离开发，后续由启动器接入本仓库能力。
 
 ## 项目定位
 
-绘心 Voice 是一个聚焦语音生成与展示体验的产品仓库。
-
-它当前主要负责：
+绘心 Voice 是一个聚焦语音生成与展示体验的产品仓库，当前主要负责：
 
 - 多个 TTS 后端的统一接入
 - 角色语音资源组织
 - provider 适配层
 - 运行时依赖与分发方式整理
 - 用更轻的方式展示和验证语音能力
-
-启动器、桌面壳层、exe 入口不再作为这个仓库的核心职责。
 
 ## 当前目标
 
@@ -87,42 +83,14 @@
 > [!IMPORTANT]
 > 语音产品本体和桌面启动器不是一个层级的问题。
 >
-> 把它们拆开后会更清楚：
+> 拆开后更清楚：
 >
 > - 本仓库专心做语音能力
 > - 启动器仓库专心做桌面入口
 > - 后续可以分别迭代，不互相拖累
-
-这意味着当前仓库更像：
-
-- Voice product repository
-- TTS runtime repository
-- provider integration repository
-
-而不是 Launcher 仓库。
-
-## 计划支持的后端
-
-- GSV-Lite
-- Genie-TTS
-- faster-qwen-tts
-
-后续会通过统一的 provider 适配层来组织调用方式，而不是让上层直接耦合到具体实现。
-
-## 第一阶段目标
-
-第一阶段先把这些事情做稳：
-
-- provider 适配层
-- 基础 voices 资源组织
-- `uv / docker / conda` 三种运行方式
-- CPU / GPU 安装策略区分
-- 模型下载职责与运行仓库职责划清
 
 ## 与 XnneHangLab 的关系
 
 如果你想使用完整项目，请前往主仓库：
 
 - [XnneHangLab](https://github.com/XnneHangLab/XnneHangLab)
-
-如果你想关注语音产品线本身，那当前仓库就是这个方向。
