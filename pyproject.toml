@@ -81,6 +81,12 @@ target-version = "py311"
 pythonVersion = "3.11"
 typeCheckingMode = "basic"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/xnnehanglab_tts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
