@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from xnnehanglab_tts.runtime.config import ensure_managed_dirs, load_runtime_config
+from xnnehanglab_tts.runtime.download import download_target_bundle
 from xnnehanglab_tts.runtime.environment import inspect_environment
 from xnnehanglab_tts.runtime.models import CliEnvelope, RuntimeInspection, VerifyResult
 from xnnehanglab_tts.runtime.targets import build_managed_paths, get_download_target
@@ -18,6 +19,10 @@ def _config_path_from_env() -> Path | None:
 
 def emit_result(payload: dict) -> None:
     print(CliEnvelope(kind="result", payload=payload).model_dump_json(by_alias=True))
+
+
+def emit_event(payload: dict) -> None:
+    print(CliEnvelope(kind="event", payload=payload).model_dump_json(by_alias=True))
 
 
 def build_runtime_inspection() -> RuntimeInspection:
@@ -65,6 +70,29 @@ def main(argv: list[str] | None = None) -> int:
         _, paths = load_runtime_config(_config_path_from_env())
         ensure_managed_dirs(paths)
         resource = verify_target(get_download_target(args.target, paths))
+        emit_result(VerifyResult(resource=resource).model_dump(by_alias=True))
+        return 0
+
+    if args.command == "download":
+        _, paths = load_runtime_config(_config_path_from_env())
+        ensure_managed_dirs(paths)
+        target = get_download_target(args.target, paths)
+        try:
+            resource = download_target_bundle(target=target, emit=emit_event)
+        except Exception as error:
+            emit_event(
+                {
+                    "event": "download.failed",
+                    "target": args.target,
+                    "status": "failed",
+                    "message": str(error),
+                    "progressCurrent": 3,
+                    "progressTotal": 3,
+                    "progressUnit": "stage",
+                }
+            )
+            return 1
+
         emit_result(VerifyResult(resource=resource).model_dump(by_alias=True))
         return 0
 
