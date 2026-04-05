@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import tomllib
 
@@ -32,7 +33,12 @@ def load_runtime_config(config_path: Path | None = None) -> tuple[RuntimeConfig,
     repo_root = config_file.parent.parent.resolve()
     raw = tomllib.loads(config_file.read_text(encoding="utf-8"))
 
-    workspace_root = _resolve_child(repo_root, raw["workspace_root"])
+    workspace_override = os.getenv("XH_VOICE_WORKSPACE_ROOT")
+    workspace_root = (
+        Path(workspace_override).resolve()
+        if workspace_override
+        else _resolve_child(repo_root, raw["workspace_root"])
+    )
     models_root = _resolve_child(workspace_root, raw["models_root"])
     cache_root = _resolve_child(workspace_root, raw["cache_root"])
     logs_root = _resolve_child(workspace_root, raw["logs_root"])

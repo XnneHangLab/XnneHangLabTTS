@@ -88,3 +88,34 @@ def test_load_runtime_config_uses_cwd_default_config(monkeypatch, tmp_path: Path
 
     assert config.workspace_root == repo_root.resolve()
     assert paths.models_root == (repo_root / "models").resolve()
+
+
+def test_load_runtime_config_honors_workspace_root_env_override(
+    monkeypatch, tmp_path: Path
+):
+    repo_root = tmp_path / "repo"
+    config_dir = repo_root / "config"
+    config_dir.mkdir(parents=True)
+    config_path = config_dir / "runtime.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workspace_root = "."',
+                'models_root = "models"',
+                'cache_root = "models/cache"',
+                'logs_root = "logs"',
+                'default_backend = "genie-tts"',
+                'runtime_driver = "uv"',
+                'python_path = ""',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    external_workspace = tmp_path / "workspace"
+    monkeypatch.setenv("XH_VOICE_WORKSPACE_ROOT", str(external_workspace))
+
+    config, paths = load_runtime_config(config_path)
+
+    assert config.workspace_root == external_workspace.resolve()
+    assert paths.models_root == (external_workspace / "models").resolve()
+    assert paths.download_logs_root == (external_workspace / "logs" / "downloads").resolve()
