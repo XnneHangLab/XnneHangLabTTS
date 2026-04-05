@@ -13,7 +13,7 @@ def inspect_environment(torch_loader: Callable[[], Any] | None = None) -> Enviro
     loader = torch_loader or _default_torch_loader
     try:
         torch = loader()
-    except ImportError as error:
+    except Exception as error:
         return EnvironmentState(
             mode="cpu",
             torch_available=False,
