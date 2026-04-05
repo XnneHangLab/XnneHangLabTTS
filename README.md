@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://xnnehang.top/">
-    <img src="./assets/imgs/logo.svg" alt="魔女の实验室" width="270" height="180" />
+    <img src="./assets/imgs/logo-full.jpg" alt="魔女の实验室" width="270" />
   </a>
 </p>
 
