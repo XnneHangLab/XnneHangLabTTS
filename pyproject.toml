@@ -72,6 +72,12 @@ qwen-tts = [
 
 [tool.uv]
 default-groups = ["base", "dev"]
+conflicts = [
+  [
+    { group = "cpu" },
+    { group = "gpu" },
+  ],
+]
 
 [tool.ruff]
 line-length = 120
