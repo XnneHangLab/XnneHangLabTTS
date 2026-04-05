@@ -44,6 +44,7 @@ def build_runtime_inspection() -> RuntimeInspection:
     latest_message = f"运行驱动 {config.runtime_driver}，当前环境 {environment.mode.upper()}"
     return RuntimeInspection(
         runtime_driver=config.runtime_driver,
+        python_path=config.python_path,
         default_backend=config.default_backend,
         environment=environment,
         available_backends=available_backends,

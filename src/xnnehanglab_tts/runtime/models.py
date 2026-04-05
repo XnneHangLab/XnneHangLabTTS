@@ -47,6 +47,7 @@ class EnvironmentState(RuntimeBaseModel):
 
 class RuntimeInspection(RuntimeBaseModel):
     runtime_driver: RuntimeDriver
+    python_path: str
     default_backend: str
     environment: EnvironmentState
     available_backends: list[str]

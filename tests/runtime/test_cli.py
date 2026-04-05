@@ -21,7 +21,7 @@ def _write_runtime_config(repo_root: Path) -> Path:
                 'logs_root = "logs"',
                 'default_backend = "genie-tts"',
                 'runtime_driver = "uv"',
-                'python_path = ""',
+                'python_path = "/repo/.venv/bin/python"',
             ]
         ),
         encoding="utf-8",
@@ -41,6 +41,7 @@ def test_inspect_runtime_prints_wrapped_json_result(monkeypatch, capsys, tmp_pat
     assert exit_code == 0
     assert payload["kind"] == "result"
     assert payload["payload"]["runtimeDriver"] == "uv"
+    assert payload["payload"]["pythonPath"] == "/repo/.venv/bin/python"
     assert payload["payload"]["resources"]["genie-base"]["status"] == "missing"
 
 
