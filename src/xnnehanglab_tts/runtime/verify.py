@@ -14,6 +14,11 @@ def verify_target(target) -> ResourceState:
     missing_paths: list[str] = []
     required_file_paths = list(getattr(target, "required_file_paths", []))
     required_dir_paths = list(getattr(target, "required_dir_paths", []))
+    expected_paths = (
+        [*required_file_paths, *required_dir_paths]
+        if (required_file_paths or required_dir_paths)
+        else list(target.required_paths)
+    )
 
     if required_file_paths or required_dir_paths:
         for relative_path in required_file_paths:
@@ -29,7 +34,7 @@ def verify_target(target) -> ResourceState:
 
     if not missing_paths:
         status = "ready"
-    elif len(missing_paths) == len(target.required_paths):
+    elif len(missing_paths) == len(expected_paths):
         status = "missing"
     else:
         status = "partial"

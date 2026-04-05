@@ -64,7 +64,10 @@ def download_target_bundle(
 
     result = verify_target(target)
     if result.status != "ready":
-        raise RuntimeError(f"{target.target_id} verify failed: {result.status}")
+        missing = ",".join(result.missing_paths) if result.missing_paths else "<none>"
+        raise RuntimeError(
+            f"{target.target_id} verify failed: status={result.status}; missing_paths={missing}"
+        )
 
     emit(
         {

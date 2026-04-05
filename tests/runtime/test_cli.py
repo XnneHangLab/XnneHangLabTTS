@@ -1,10 +1,11 @@
 import json
+import builtins
 from pathlib import Path
 
 import pytest
 
 from xnnehanglab_tts.cli import main
-from xnnehanglab_tts.runtime.models import EnvironmentState
+from xnnehanglab_tts.runtime.models import EnvironmentState, ResourceState
 
 
 def _write_runtime_config(repo_root: Path) -> Path:
@@ -102,3 +103,72 @@ def test_download_emits_failed_event_for_unsupported_target(
     assert payload["kind"] == "event"
     assert payload["payload"]["event"] == "download.failed"
     assert payload["payload"]["target"] == "bad-target"
+
+
+def test_emit_helpers_flush_stdout_immediately(monkeypatch):
+    calls = []
+
+    def fake_print(*args, **kwargs):
+        calls.append(kwargs)
+
+    monkeypatch.setattr(builtins, "print", fake_print)
+
+    from xnnehanglab_tts.cli import emit_event, emit_result
+
+    emit_event({"event": "download.progress"})
+    emit_result({"resource": {"key": "genie-base"}})
+
+    assert calls == [{"flush": True}, {"flush": True}]
+
+
+def test_download_streams_events_then_result_without_network(
+    monkeypatch, capsys, tmp_path: Path
+):
+    config_path = _write_runtime_config(tmp_path)
+    monkeypatch.setenv("XH_RUNTIME_CONFIG", str(config_path))
+
+    def fake_download_target_bundle(target, emit):
+        emit(
+            {
+                "event": "download.started",
+                "target": target.target_id,
+                "status": "preparing",
+                "progressCurrent": 0,
+                "progressTotal": 3,
+                "progressUnit": "stage",
+                "message": "started",
+            }
+        )
+        emit(
+            {
+                "event": "download.completed",
+                "target": target.target_id,
+                "status": "completed",
+                "progressCurrent": 3,
+                "progressTotal": 3,
+                "progressUnit": "stage",
+                "message": "completed",
+            }
+        )
+        return ResourceState(
+            key=target.target_id,
+            label=target.label,
+            status="ready",
+            path=str(target.resource_root),
+            missing_paths=[],
+        )
+
+    monkeypatch.setattr(
+        "xnnehanglab_tts.cli.download_target_bundle", fake_download_target_bundle
+    )
+
+    exit_code = main(["download", "genie-base"])
+
+    lines = capsys.readouterr().out.strip().splitlines()
+    parsed = [json.loads(line) for line in lines]
+
+    assert exit_code == 0
+    assert [entry["kind"] for entry in parsed] == ["event", "event", "result"]
+    assert parsed[0]["payload"]["event"] == "download.started"
+    assert parsed[1]["payload"]["event"] == "download.completed"
+    assert parsed[2]["payload"]["resource"]["key"] == "genie-base"

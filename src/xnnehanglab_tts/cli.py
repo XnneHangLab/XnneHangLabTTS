@@ -18,11 +18,17 @@ def _config_path_from_env() -> Path | None:
 
 
 def emit_result(payload: dict) -> None:
-    print(CliEnvelope(kind="result", payload=payload).model_dump_json(by_alias=True))
+    print(
+        CliEnvelope(kind="result", payload=payload).model_dump_json(by_alias=True),
+        flush=True,
+    )
 
 
 def emit_event(payload: dict) -> None:
-    print(CliEnvelope(kind="event", payload=payload).model_dump_json(by_alias=True))
+    print(
+        CliEnvelope(kind="event", payload=payload).model_dump_json(by_alias=True),
+        flush=True,
+    )
 
 
 def build_runtime_inspection() -> RuntimeInspection:

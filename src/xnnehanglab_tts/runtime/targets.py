@@ -6,16 +6,12 @@ from .paths import RuntimePaths
 GENIE_BASE_REPO_ID = os.getenv("XH_GENIE_BASE_REPO_ID", "XnneHangLab/GenieData")
 GENIE_BASE_REQUIRED_PATHS = [
     "speaker_encoder.onnx",
-    "chinese-hubert-base",
-    "G2P/EnglishG2P",
-    "G2P/ChineseG2P",
+    "chinese-hubert-base/chinese-hubert-base.onnx",
+    "G2P/EnglishG2P/cmudict.rep",
+    "G2P/ChineseG2P/opencpop-strict.txt",
 ]
-GENIE_BASE_REQUIRED_FILE_PATHS = ["speaker_encoder.onnx"]
-GENIE_BASE_REQUIRED_DIR_PATHS = [
-    "chinese-hubert-base",
-    "G2P/EnglishG2P",
-    "G2P/ChineseG2P",
-]
+GENIE_BASE_REQUIRED_FILE_PATHS = list(GENIE_BASE_REQUIRED_PATHS)
+GENIE_BASE_REQUIRED_DIR_PATHS: list[str] = []
 
 
 def build_managed_paths(paths: RuntimePaths) -> list[ManagedPath]:
