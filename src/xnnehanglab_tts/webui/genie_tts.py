@@ -102,4 +102,24 @@ def _build_demo():
 
 
 def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> None:
-    _build_demo().launch(server_name=host, server_port=port, share=share)
+    import time
+
+    try:
+        _build_demo().launch(server_name=host, server_port=port, share=share)
+    except Exception as exc:
+        # Gradio 5 makes a post-launch HTTP request (version check) after the
+        # server is already listening.  On machines where a proxy blocks that
+        # outbound connection the request throws httpx.ReadError / httpx.HTTPError.
+        # Catch it and block so the process stays alive and keeps serving.
+        try:
+            import httpx
+            is_network_exc = isinstance(exc, httpx.HTTPError)
+        except ImportError:
+            is_network_exc = False
+
+        if not is_network_exc:
+            raise
+
+        print("[webui] 服务器运行中，忽略代理网络错误，保持进程存活…", flush=True)
+        while True:
+            time.sleep(3600)
