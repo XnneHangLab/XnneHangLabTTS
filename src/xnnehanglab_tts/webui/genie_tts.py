@@ -79,7 +79,7 @@ def _build_genie_tts_tab(gr):
         with gr.Row():
             status_box = gr.Textbox(
                 label="模型状态",
-                value="正在检查…",
+                value="⚠️ 未加载",
                 interactive=False,
                 scale=4,
             )
@@ -134,7 +134,7 @@ def _build_demo():
     with gr.Blocks(title="XnneHangLab TTS") as demo:
         gr.Markdown("# XnneHangLab TTS 语音合成")
 
-        genie_status_box = _build_genie_tts_tab(gr)
+        _build_genie_tts_tab(gr)
 
         with gr.Tab("GSV-Lite"):
             gr.Markdown("## GSV-Lite\n\nGSV-Lite 功能开发中，敬请期待。")
@@ -142,25 +142,23 @@ def _build_demo():
         with gr.Tab("Faster-Qwen-TTS"):
             gr.Markdown("## Faster-Qwen-TTS\n\nFaster-Qwen-TTS 功能开发中，敬请期待。")
 
-        def _refresh_status_on_load() -> str:
-            try:
-                status = _get_logic().get_genie_tts_status()
-                loaded_char = status.get("loaded_character")
-                if status.get("loaded"):
-                    return f"✅ 已加载: {loaded_char}"
-                return "⚠️ 未加载"
-            except Exception as exc:
-                return f"❌ {exc}"
-
-        # Non-blocking: page renders first, then status check fills in.
-        demo.load(fn=_refresh_status_on_load, outputs=genie_status_box)
-
     return demo
 
 
 def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> None:
+    import logging
+    import sys
     import threading
     import time
+
+    # Route all Python logging (uvicorn, Gradio internals) to stdout so the
+    # Tauri log pipe captures them alongside print() output.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s: %(message)s",
+        stream=sys.stdout,
+        force=True,
+    )
 
     demo = _build_demo()
 
