@@ -3,66 +3,22 @@ from __future__ import annotations
 import io
 import os
 import sys
-from importlib import import_module
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
 
-
-def _ensure_lab_on_path() -> None:
-    """Add workspace_root/src to sys.path so `lab` is importable.
-
-    The webui runs in the XnneHangLabTTS venv which does not have the
-    XnneHangLab `lab` package installed.  The Rust spawner already sets
-    XH_VOICE_WORKSPACE_ROOT to the workspace root (the XnneHangLab
-    directory), so workspace_root/src contains the `lab` package.
-    """
-    workspace = os.environ.get("XH_VOICE_WORKSPACE_ROOT", "")
-    if not workspace:
-        return
-    candidate = Path(workspace) / "src"
-    if candidate.is_dir() and str(candidate) not in sys.path:
-        sys.path.insert(0, str(candidate))
-        print(f"INFO: added {candidate} to sys.path for lab package", flush=True)
+from xnnehanglab_tts.webui import genie_runtime
 
 
-def _get_logic():
-    try:
-        return import_module("lab.api.logic.genie_tts")
-    except ModuleNotFoundError:
-        _ensure_lab_on_path()
-        return import_module("lab.api.logic.genie_tts")
-
-
-def _list_characters() -> list[str]:
-    """List available genie-tts character dirs via XnneHangLabTTS runtime config.
-
-    Uses paths.genie_tts_root directly so it works without lab.toml being
-    present in the current directory.
-    """
-    try:
-        from xnnehanglab_tts.runtime.config import load_runtime_config
-        _, paths = load_runtime_config()
-        genie_tts_dir = paths.genie_tts_root
-        if not genie_tts_dir.is_dir():
-            print(f"WARNING: genie-tts models dir not found: {genie_tts_dir}", flush=True)
-            return []
-        return sorted(
-            entry.name
-            for entry in genie_tts_dir.iterdir()
-            if entry.is_dir() and not entry.name.startswith(".")
-        )
-    except Exception as exc:
-        print(f"ERROR: _list_characters failed: {exc}", flush=True)
-        return []
-    data, sr = sf.read(io.BytesIO(wav_bytes), dtype="float32")
-    return sr, data
+def _wav_bytes_to_audio(wav_bytes: bytes) -> tuple[int, np.ndarray]:
+    data, sample_rate = sf.read(io.BytesIO(wav_bytes), dtype="float32")
+    return sample_rate, np.asarray(data)
 
 
 def _build_genie_tts_tab(gr):
     def list_characters() -> list[str]:
-        return _list_characters()
+        return genie_runtime.list_available_models()
 
     def refresh_character_list():
         choices = list_characters()
@@ -71,28 +27,30 @@ def _build_genie_tts_tab(gr):
 
     def refresh_status() -> str:
         try:
-            status = _get_logic().get_genie_tts_status()
+            status = genie_runtime.get_genie_tts_status()
             loaded_char = status.get("loaded_character")
             if status.get("loaded"):
-                return f"✅ 已加载: {loaded_char}"
-            return "⚠️ 未加载"
+                return f"已加载: {loaded_char}"
+            return "未加载"
         except Exception as exc:
             print(f"ERROR: get_genie_tts_status failed: {exc}", flush=True)
-            return f"❌ {exc}"
+            return f"加载状态失败: {exc}"
 
     def load_model(character_name: str | None):
         if not character_name:
-            yield "❌ 请先选择角色模型"
+            yield "请先选择角色模型"
             return
-        yield f"⏳ 正在加载 {character_name}，请稍候…"
+        yield f"正在加载 {character_name}，请稍候…"
         try:
-            logic = _get_logic()
-            logic.load_genie_tts_model_by_name(character_name)
-            status = logic.get_genie_tts_status()
-            yield f"✅ 已加载: {status.get('loaded_character')}" if status.get("loaded") else "❌ 加载失败（状态异常）"
+            genie_runtime.load_genie_tts_model_by_name(character_name)
+            status = genie_runtime.get_genie_tts_status()
+            if status.get("loaded"):
+                yield f"已加载: {status.get('loaded_character')}"
+                return
+            yield "加载失败：状态异常"
         except Exception as exc:
-            print(f"ERROR: load_genie_tts_model_by_name({character_name!r}) failed: {exc}", flush=True)
-            yield f"❌ 加载失败: {exc}"
+            print(f"ERROR: load model failed: {exc}", flush=True)
+            yield f"加载失败: {exc}"
 
     async def synthesize(
         text: str,
@@ -104,14 +62,10 @@ def _build_genie_tts_tab(gr):
             raise gr.Error("合成文本不能为空")
 
         try:
-            logic = _get_logic()
-            if not logic.get_genie_tts_status().get("loaded"):
-                raise gr.Error("模型尚未加载，请先选择角色并点击「加载模型」")
-
-            wav_bytes = await logic.synthesize_once(
+            wav_bytes = await genie_runtime.synthesize_once(
                 text=text,
-                ref_audio=Path(ref_audio_path) if ref_audio_path else None,
-                ref_text=(ref_text or "").strip() or None,
+                ref_audio=None if not ref_audio_path else Path(ref_audio_path),
+                ref_text=ref_text,
             )
             return _wav_bytes_to_audio(wav_bytes)
         except gr.Error:
@@ -127,7 +81,7 @@ def _build_genie_tts_tab(gr):
         with gr.Row():
             status_box = gr.Textbox(
                 label="模型状态",
-                value="⚠️ 未加载",
+                value="未加载",
                 interactive=False,
                 scale=4,
             )
@@ -195,25 +149,18 @@ def _build_demo():
 
 def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> None:
     import logging
-    import os
-    import sys
     import threading
     import time
 
-    # Change cwd to the XnneHangLab workspace so that load_settings_file("lab.toml")
-    # inside the lab logic finds the file when a model is loaded.
-    # All XnneHangLabTTS config paths are passed via absolute env vars
-    # (XH_VOICE_WORKSPACE_ROOT, XH_RUNTIME_CONFIG) so this is safe.
     workspace = os.environ.get("XH_VOICE_WORKSPACE_ROOT", "")
     if workspace and Path(workspace).is_dir():
-        os.chdir(workspace)
-        print(f"INFO: working directory set to {workspace}", flush=True)
+        print(f"INFO: workspace root set to {workspace}", flush=True)
     else:
-        print(f"WARNING: XH_VOICE_WORKSPACE_ROOT not set or invalid ({workspace!r}); "
-              "lab.toml may not be found when loading models", flush=True)
+        print(
+            f"WARNING: XH_VOICE_WORKSPACE_ROOT not set or invalid ({workspace!r})",
+            flush=True,
+        )
 
-    # Route all Python logging (uvicorn, Gradio internals) to stdout so the
-    # Tauri log pipe captures them alongside print() output.
     logging.basicConfig(
         level=logging.INFO,
         format="%(levelname)s: %(message)s",
@@ -221,39 +168,28 @@ def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> N
         force=True,
     )
 
-    # Gradio 5 does a self-check GET to localhost after uvicorn starts.
-    # Corporate proxies / VPNs intercept even loopback traffic and return
-    # 502, which causes Gradio to raise an Exception and abort.
-    # Ensure localhost and 127.0.0.1 are always in NO_PROXY / no_proxy.
-    for _key in ("NO_PROXY", "no_proxy"):
-        _existing = {e.strip() for e in os.environ.get(_key, "").split(",") if e.strip()}
-        _existing.update({"localhost", "127.0.0.1"})
-        os.environ[_key] = ",".join(sorted(_existing))
+    for env_key in ("NO_PROXY", "no_proxy"):
+        existing = {value.strip() for value in os.environ.get(env_key, "").split(",") if value.strip()}
+        existing.update({"localhost", "127.0.0.1"})
+        os.environ[env_key] = ",".join(sorted(existing))
 
     demo = _build_demo()
-
-    # Gradio 5 bug: blocks.py calls httpx.get() for a version-check with no
-    # surrounding try/except, so a proxy-related ReadError propagates uncaught
-    # out of launch().  Suppress httpx.HTTPError from this thread only; every
-    # other exception class still goes through the original excepthook.
-    _orig_excepthook = threading.excepthook
+    original_excepthook = threading.excepthook
 
     def _excepthook(args: threading.ExceptHookArgs) -> None:
         exc = args.exc_value
         try:
             import httpx
+
             if isinstance(exc, httpx.HTTPError):
                 return
         except ImportError:
             pass
-        # Gradio 5 raises a plain Exception when its post-launch self-check
-        # GET to /gradio_api/startup-events is intercepted by a proxy (502).
-        # The server is already running at this point; log a warning and carry on.
         if isinstance(exc, Exception) and "startup-events" in str(exc):
-            print(f"WARNING: Gradio startup self-check failed (proxy/network issue): {exc}", flush=True)
+            print(f"WARNING: Gradio startup self-check failed: {exc}", flush=True)
             print("WARNING: WebUI may still be accessible at the URL shown above.", flush=True)
             return
-        _orig_excepthook(args)
+        original_excepthook(args)
 
     threading.excepthook = _excepthook
     try:
@@ -267,4 +203,4 @@ def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> N
     except KeyboardInterrupt:
         pass
     finally:
-        threading.excepthook = _orig_excepthook
+        threading.excepthook = original_excepthook
