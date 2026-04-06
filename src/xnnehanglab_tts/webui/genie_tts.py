@@ -147,6 +147,7 @@ def _build_demo():
 
 def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> None:
     import logging
+    import os
     import sys
     import threading
     import time
@@ -160,6 +161,15 @@ def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> N
         force=True,
     )
 
+    # Gradio 5 does a self-check GET to localhost after uvicorn starts.
+    # Corporate proxies / VPNs intercept even loopback traffic and return
+    # 502, which causes Gradio to raise an Exception and abort.
+    # Ensure localhost and 127.0.0.1 are always in NO_PROXY / no_proxy.
+    for _key in ("NO_PROXY", "no_proxy"):
+        _existing = {e.strip() for e in os.environ.get(_key, "").split(",") if e.strip()}
+        _existing.update({"localhost", "127.0.0.1"})
+        os.environ[_key] = ",".join(sorted(_existing))
+
     demo = _build_demo()
 
     # Gradio 5 bug: blocks.py calls httpx.get() for a version-check with no
@@ -169,12 +179,20 @@ def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> N
     _orig_excepthook = threading.excepthook
 
     def _excepthook(args: threading.ExceptHookArgs) -> None:
+        exc = args.exc_value
         try:
             import httpx
-            if isinstance(args.exc_value, httpx.HTTPError):
+            if isinstance(exc, httpx.HTTPError):
                 return
         except ImportError:
             pass
+        # Gradio 5 raises a plain Exception when its post-launch self-check
+        # GET to /gradio_api/startup-events is intercepted by a proxy (502).
+        # The server is already running at this point; log a warning and carry on.
+        if isinstance(exc, Exception) and "startup-events" in str(exc):
+            print(f"WARNING: Gradio startup self-check failed (proxy/network issue): {exc}", flush=True)
+            print("WARNING: WebUI may still be accessible at the URL shown above.", flush=True)
+            return
         _orig_excepthook(args)
 
     threading.excepthook = _excepthook
