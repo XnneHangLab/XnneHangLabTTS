@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from datetime import datetime
 import os
 import re
@@ -10,9 +9,6 @@ import traceback
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
-
-import numpy as np
-import soundfile as sf
 
 from xnnehanglab_tts.runtime.config import load_runtime_config
 
@@ -181,19 +177,6 @@ def _build_synthesis_output_path(text: str, paths) -> Path:
     filename = f"{_sanitize_output_name_fragment(text)}_{timestamp}.wav"
     return output_dir / filename
 
-
-def _save_pcm_chunks_to_wav_file(chunks: list[bytes], sample_rate: int, output_path: Path) -> None:
-    if not chunks:
-        raise RuntimeError("Genie-TTS 未返回音频数据")
-
-    arrays = [np.frombuffer(chunk, dtype=np.int16) for chunk in chunks if chunk]
-    if not arrays:
-        raise RuntimeError("Genie-TTS 返回的音频数据为空")
-
-    merged = np.concatenate(arrays, axis=0)
-    sf.write(str(output_path), merged, sample_rate, format="WAV", subtype="PCM_16")
-
-
 def list_available_models() -> list[str]:
     try:
         paths = _load_runtime_paths()
@@ -238,7 +221,7 @@ def load_genie_tts_model_by_name(character_name: str) -> None:
     _STATE.loaded_character = character_name
 
 
-async def synthesize_once(
+def synthesize_once(
     text: str,
     ref_audio: Path | None,
     ref_text: str | None,
@@ -270,16 +253,13 @@ async def synthesize_once(
         )
         reference_elapsed = time.perf_counter() - reference_started_at
         synth_started_at = time.perf_counter()
-        chunks = [
-            chunk
-            async for chunk in genie.tts_async(
-                character_name=_STATE.loaded_character,
-                text=text,
-                play=False,
-                split_sentence=True,
-            )
-        ]
-        _save_pcm_chunks_to_wav_file(chunks, 32000, output_path)
+        genie.tts(
+            character_name=_STATE.loaded_character,
+            text=text,
+            play=False,
+            split_sentence=True,
+            save_path=str(output_path),
+        )
         synth_elapsed = time.perf_counter() - synth_started_at
         if not output_path.is_file() or output_path.stat().st_size == 0:
             output_path.unlink(missing_ok=True)

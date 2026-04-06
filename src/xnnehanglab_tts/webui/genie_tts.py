@@ -45,7 +45,7 @@ def _build_genie_tts_tab(gr):
             print(f"ERROR: load model failed: {exc}", flush=True)
             yield f"加载失败: {exc}"
 
-    async def synthesize(
+    def synthesize(
         text: str,
         ref_audio_path: str | None,
         ref_text: str | None,
@@ -55,7 +55,7 @@ def _build_genie_tts_tab(gr):
             raise gr.Error("合成文本不能为空")
 
         try:
-            output_path = await genie_runtime.synthesize_once(
+            output_path = genie_runtime.synthesize_once(
                 text=text,
                 ref_audio=None if not ref_audio_path else Path(ref_audio_path),
                 ref_text=ref_text,
