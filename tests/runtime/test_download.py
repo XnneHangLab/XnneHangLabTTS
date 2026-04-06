@@ -1,9 +1,10 @@
+import os
 from pathlib import Path
 
 import pytest
 
 from xnnehanglab_tts.runtime.config import load_runtime_config
-from xnnehanglab_tts.runtime.download import download_target_bundle
+from xnnehanglab_tts.runtime.download import _TqdmCapture, download_target_bundle
 from xnnehanglab_tts.runtime.targets import get_download_target
 
 
@@ -46,7 +47,7 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
                 "allow_file_pattern": allow_file_pattern,
             }
         )
-        resource_root = Path(local_dir) / "GenieData"
+        resource_root = Path(local_dir)
         (resource_root / "speaker_encoder.onnx").parent.mkdir(parents=True, exist_ok=True)
         (resource_root / "speaker_encoder.onnx").write_text("ok", encoding="utf-8")
         (resource_root / "chinese-hubert-base").mkdir(parents=True, exist_ok=True)
@@ -77,7 +78,7 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
             "model_id": target.repo_id,
             "cache_dir": str(target.cache_dir),
             "local_dir": str(target.local_dir),
-            "allow_file_pattern": target.allow_file_pattern,
+            "allow_file_pattern": target.allow_file_pattern or None,
         }
     ]
     assert events == [
@@ -132,7 +133,7 @@ def test_download_target_bundle_raises_with_missing_paths_when_verify_not_ready(
         events.append(payload)
 
     def fake_snapshot_download(model_id, cache_dir, local_dir, allow_file_pattern):
-        resource_root = Path(local_dir) / "GenieData"
+        resource_root = Path(local_dir)
         resource_root.mkdir(parents=True, exist_ok=True)
         (resource_root / "speaker_encoder.onnx").write_text("ok", encoding="utf-8")
         return str(resource_root)
@@ -153,3 +154,49 @@ def test_download_target_bundle_raises_with_missing_paths_when_verify_not_ready(
         "download.progress",
         "download.verifying",
     ]
+
+
+def test_tqdm_capture_emits_file_progress_events_for_real_modelscope_bars():
+    from modelscope.hub.callback import TqdmCallback
+
+    events = []
+
+    with _TqdmCapture(events.append, "genie-base"):
+        callback = TqdmCallback(
+            "GenieData/chinese-hubert-base/chinese-hubert-base.onnx",
+            180 * 1024 * 1024,
+        )
+        callback.update(75 * 1024 * 1024)
+        callback.end()
+
+    assert events[-1] == {
+        "event": "download.file_progress",
+        "target": "genie-base",
+        "desc": "GenieData/chinese-hubert-base/chinese-hubert-base.onnx",
+        "percent": 42,
+        "downloaded": "75.0M",
+        "total": "180M",
+    }
+
+
+def test_tqdm_capture_drops_modelscope_info_logs():
+    events = []
+    capture = _TqdmCapture(events.append, "genie-base")
+    read_fd, write_fd = os.pipe()
+    capture._saved_fd2 = write_fd
+
+    try:
+        capture._handle(
+            "2026-04-06 08:00:00,000 - modelscope - INFO - Got 4 files, start to download ..."
+        )
+        os.close(write_fd)
+        capture._saved_fd2 = None
+        assert os.read(read_fd, 4096) == b""
+    finally:
+        if capture._saved_fd2 is not None:
+            os.close(capture._saved_fd2)
+        os.close(read_fd)
+        os.close(capture._r)
+        os.close(capture._w)
+
+    assert events == []

@@ -22,6 +22,10 @@ _RE_TQDM_DOWNLOADING = re.compile(
 # stderr where it would appear as garbled text.
 _RE_TQDM_ANY = re.compile(r"\d+%\|")
 
+# Matches informational ModelScope logger lines that would otherwise flood the
+# launcher console during downloads.
+_RE_MODELSCOPE_LOG_NOISE = re.compile(r"\bmodelscope\b\s*-\s*(?:INFO|DEBUG)\s*-")
+
 
 class _TqdmCapture:
     """Context manager: redirect OS file descriptors 1 (stdout) and 2 (stderr)
@@ -30,7 +34,9 @@ class _TqdmCapture:
 
     Python-level ``sys.stdout`` is re-pointed to the saved Tauri IPC file
     descriptor so that ``emit_event()`` (which uses ``print()``) bypasses the
-    pipe and reaches the Tauri backend directly.
+    pipe and reaches the Tauri backend directly. Python-level ``sys.stderr``
+    stays attached to the redirected fd 2 so regular ``tqdm`` writes still flow
+    through the capture pipe.
 
     The reader thread parses captured lines:
 
@@ -64,10 +70,10 @@ class _TqdmCapture:
         # Redirect OS-level fd 1 & 2 → capture pipe
         os.dup2(self._w, 1)
         os.dup2(self._w, 2)
-        # Re-point Python sys.stdout/stderr → saved Tauri fds
-        # so emit_event() (print → sys.stdout) reaches Tauri IPC directly
-        sys.stdout = open(self._saved_fd1, "w", closefd=False)
-        sys.stderr = open(self._saved_fd2, "w", closefd=False)
+        # Keep stdout on the original IPC fd so emit_event() bypasses the pipe,
+        # but keep stderr attached to fd 2 so tqdm/logging writes are captured.
+        sys.stdout = open(self._saved_fd1, "w", buffering=1, closefd=False)
+        sys.stderr = open(2, "w", buffering=1, closefd=False)
         # Start reader now that fds are redirected
         self._thread.start()
         return self
@@ -170,6 +176,8 @@ class _TqdmCapture:
         # Drop any other tqdm bar silently
         if _RE_TQDM_ANY.search(line):
             return
+        if _RE_MODELSCOPE_LOG_NOISE.search(line):
+            return
         # Forward genuine output to Tauri stderr
         try:
             if self._saved_fd2 is not None:
@@ -184,9 +192,13 @@ def _make_modelscope_downloader(emit: EmitEvent, target_id: str) -> SnapshotDown
     def _downloader(**kwargs) -> str:
         import logging
 
+        os.environ["MODELSCOPE_LOG_LEVEL"] = str(logging.WARNING)
         from modelscope import snapshot_download
 
-        logging.getLogger("modelscope").setLevel(logging.WARNING)
+        logger = logging.getLogger("modelscope")
+        logger.setLevel(logging.WARNING)
+        for handler in logger.handlers:
+            handler.setLevel(logging.WARNING)
         with _TqdmCapture(emit, target_id):
             return snapshot_download(**kwargs)
 
