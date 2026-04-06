@@ -45,6 +45,13 @@ gpu = [
   "torchaudio @ https://download.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
 ]
 
+gpu-cu124 = [
+  "torch @ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
+  "torchaudio @ https://download.pytorch.org/whl/cu124/torchaudio-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
+  "torch @ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
+  "torchaudio @ https://download.pytorch.org/whl/cu124/torchaudio-2.6.0%2Bcu124-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
+]
+
 genie-tts = [
   "modelscope",
   "onnx",
@@ -77,6 +84,7 @@ conflicts = [
   [
     { group = "cpu" },
     { group = "gpu" },
+    { group = "gpu-cu124" },
   ],
 ]
 
