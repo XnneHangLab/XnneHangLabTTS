@@ -133,29 +133,16 @@ uv sync
 
 默认配置：**Windows → CUDA 12.8（RTX 50 系 / Blackwell）**，**Linux → CPU**。
 
-先运行 `nvidia-smi`，查看右上角的 **CUDA Version**，对照下表：
+先运行 `nvidia-smi`，查看右上角的 **CUDA Version**，选对应命令：
 
-| GPU | CUDA Version | 操作 |
+| GPU | CUDA Version | 命令 |
 |-----|-------------|------|
-| 无独显 / 纯测试 | — | 无需修改（Linux 默认 CPU） |
-| GTX 10xx ~ RTX 20/30 系旧驱动 | ≤ 11.8 | 切换到 `pytorch-cu118`（见 `pyproject.toml` 注释） |
-| RTX 20/30/40 系新驱动 | 12.4 | 切换到 `pytorch-cu124`（见 `pyproject.toml` 注释） |
-| RTX 50 系 (Blackwell) | ≥ 12.8 | 默认，无需修改 |
+| 无独显 / 纯测试 | — | `just use-cpu` |
+| GTX 10xx ~ RTX 20/30 系旧驱动 | ≤ 11.8 | `just use-cu118` |
+| RTX 20/30/40 系新驱动 | 12.4 | `just use-cu124` |
+| RTX 50 系 (Blackwell) | ≥ 12.8 | `just use-cu128`（默认已配置，首次直接 `uv sync`） |
 
-切换版本时，按 `pyproject.toml` 中各 index 块的注释步骤操作。
-
-> [!WARNING]
-> 切换 torch 版本前，**必须先删除 `.venv` 和 `uv.lock`**，否则旧版本不会被替换：
->
-> ```bash
-> # Linux / macOS
-> rm -rf .venv uv.lock
->
-> # Windows PowerShell
-> Remove-Item -Recurse -Force .venv, uv.lock
-> ```
->
-> 然后重新执行 `uv sync`。
+命令会自动替换配置、清理旧环境并重新安装，无需手动操作。
 
 安装完成后验证：
 

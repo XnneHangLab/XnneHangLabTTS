@@ -62,50 +62,6 @@ qwen-tts = [
 [tool.uv]
 default-groups = ["base", "dev"]
 
-# ── PyTorch 索引 ─────────────────────────────────────────────────────────────
-# Linux / 无 GPU：始终使用 CPU 版本
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-# GTX 10xx ~ RTX 20/30 系，nvidia-smi 显示 CUDA ≤ 11.8 时：
-#   1. 取消注释下方三行
-#   2. 注释掉下面 pytorch-cu128 的三行
-#   3. 将 [tool.uv.sources] 中的 "pytorch-cu128" 改为 "pytorch-cu118"
-#   4. 删除 .venv 和 uv.lock，重新执行 uv sync
-# [[tool.uv.index]]
-# name = "pytorch-cu118"
-# url = "https://download.pytorch.org/whl/cu118"
-# explicit = true
-
-# RTX 20/30/40 系新驱动，nvidia-smi 显示 CUDA 12.4 时：
-#   1. 取消注释下方三行
-#   2. 注释掉下面 pytorch-cu128 的三行
-#   3. 将 [tool.uv.sources] 中的 "pytorch-cu128" 改为 "pytorch-cu124"
-#   4. 删除 .venv 和 uv.lock，重新执行 uv sync
-# [[tool.uv.index]]
-# name = "pytorch-cu124"
-# url = "https://download.pytorch.org/whl/cu124"
-# explicit = true
-
-# RTX 50 系 Blackwell，nvidia-smi 显示 CUDA ≥ 12.8 —— Windows 默认
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
-
-[tool.uv.sources]
-# Windows → GPU (默认 cu128)；Linux → CPU
-# 切换 CUDA 版本时，同步修改上方启用的 index name
-torch = [
-  { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
-]
-torchaudio = [
-  { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
-  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
-]
 
 [tool.ruff]
 line-length = 120

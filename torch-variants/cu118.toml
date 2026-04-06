@@ -1,0 +1,21 @@
+# GTX 10xx ~ RTX 20/30 系，nvidia-smi 显示 CUDA ≤ 11.8
+
+[[index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[index]]
+name = "pytorch-cu118"
+url = "https://download.pytorch.org/whl/cu118"
+explicit = true
+
+[sources]
+torch = [
+  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
+]
+torchaudio = [
+  { index = "pytorch-cu118", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
+]
