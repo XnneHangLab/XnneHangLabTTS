@@ -1,24 +1,11 @@
 from __future__ import annotations
 
-import io
 import os
 import sys
 import traceback
 from pathlib import Path
 
-import numpy as np
-import soundfile as sf
-
 from xnnehanglab_tts.webui import genie_runtime
-
-
-def _wav_bytes_to_audio(wav_bytes: bytes) -> tuple[int, np.ndarray]:
-    buffer = io.BytesIO(wav_bytes)
-    subtype = sf.info(buffer).subtype
-    buffer.seek(0)
-    dtype = "int16" if subtype == "PCM_16" else "float32"
-    data, sample_rate = sf.read(buffer, dtype=dtype)
-    return sample_rate, np.asarray(data)
 
 
 def _build_genie_tts_tab(gr):
@@ -62,18 +49,18 @@ def _build_genie_tts_tab(gr):
         text: str,
         ref_audio_path: str | None,
         ref_text: str | None,
-    ) -> tuple[int, np.ndarray]:
+    ) -> str:
         text = (text or "").strip()
         if not text:
             raise gr.Error("合成文本不能为空")
 
         try:
-            wav_bytes = await genie_runtime.synthesize_once(
+            output_path = await genie_runtime.synthesize_once(
                 text=text,
                 ref_audio=None if not ref_audio_path else Path(ref_audio_path),
                 ref_text=ref_text,
             )
-            return _wav_bytes_to_audio(wav_bytes)
+            return str(output_path)
         except gr.Error:
             raise
         except Exception as exc:

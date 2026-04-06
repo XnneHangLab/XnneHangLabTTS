@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import os
+import re
 import sys
-import tempfile
+import time
 import traceback
 from dataclasses import dataclass
 from importlib import import_module
@@ -95,14 +97,25 @@ def _patch_genie_resource_paths(genie_data_dir: Path) -> None:
 
     fast_langdetect_infer = sys.modules.get("fast_langdetect.infer")
     if fast_langdetect_infer is not None:
-        setattr(fast_langdetect_infer, "CACHE_DIRECTORY", overrides["FTLANG_CACHE"])
         default_detector = getattr(fast_langdetect_infer, "_default_detector", None)
+        previous_cache_directory = getattr(fast_langdetect_infer, "CACHE_DIRECTORY", None)
+        setattr(fast_langdetect_infer, "CACHE_DIRECTORY", overrides["FTLANG_CACHE"])
         detector_config = getattr(default_detector, "config", None)
+        should_clear_model_cache = previous_cache_directory != overrides["FTLANG_CACHE"]
         if detector_config is not None:
+            should_clear_model_cache = should_clear_model_cache or (
+                getattr(detector_config, "cache_dir", None) != overrides["FTLANG_CACHE"]
+            )
+            should_clear_model_cache = should_clear_model_cache or (
+                getattr(detector_config, "custom_model_path", None) != str(fasttext_model_path)
+            )
+            should_clear_model_cache = should_clear_model_cache or (
+                getattr(detector_config, "model", None) != "full"
+            )
             setattr(detector_config, "cache_dir", overrides["FTLANG_CACHE"])
             setattr(detector_config, "custom_model_path", str(fasttext_model_path))
             setattr(detector_config, "model", "full")
-        if default_detector is not None:
+        if should_clear_model_cache and default_detector is not None:
             model_cache = getattr(default_detector, "_models", None)
             if isinstance(model_cache, dict):
                 model_cache.clear()
@@ -146,6 +159,24 @@ def _resolve_character_model_dir(character_name: str, paths) -> Path:
     if not model_dir.is_dir():
         raise FileNotFoundError(f"角色模型目录不存在: {model_dir}")
     return model_dir
+
+
+def _sanitize_output_name_fragment(text: str, *, max_length: int = 24) -> str:
+    normalized = re.sub(r"\s+", "_", text.strip())
+    normalized = "".join(char if char.isalnum() else "_" for char in normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("._")
+    if not normalized:
+        return "audio"
+    clipped = normalized[:max_length].rstrip("._")
+    return clipped or "audio"
+
+
+def _build_synthesis_output_path(text: str, paths) -> Path:
+    output_dir = paths.cache_root / "genie-tts"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+    filename = f"{_sanitize_output_name_fragment(text)}_{timestamp}.wav"
+    return output_dir / filename
 
 
 def list_available_models() -> list[str]:
@@ -196,7 +227,7 @@ async def synthesize_once(
     text: str,
     ref_audio: Path | None,
     ref_text: str | None,
-) -> bytes:
+) -> Path:
     if not _STATE.loaded_character:
         raise RuntimeError("模型尚未加载，请先选择角色并点击「加载模型」")
     if ref_audio is None:
@@ -210,11 +241,11 @@ async def synthesize_once(
 
     paths = _load_runtime_paths()
     genie = _load_genie_module(paths)
-
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as handle:
-        output_path = Path(handle.name)
+    total_started_at = time.perf_counter()
+    output_path = _build_synthesis_output_path(text, paths)
 
     try:
+        reference_started_at = time.perf_counter()
         await asyncio.to_thread(
             genie.set_reference_audio,
             character_name=_STATE.loaded_character,
@@ -223,6 +254,8 @@ async def synthesize_once(
             language="auto",
             use_roberta=False,
         )
+        reference_elapsed = time.perf_counter() - reference_started_at
+        synth_started_at = time.perf_counter()
         await asyncio.to_thread(
             genie.tts,
             character_name=_STATE.loaded_character,
@@ -231,8 +264,19 @@ async def synthesize_once(
             split_sentence=True,
             save_path=str(output_path),
         )
+        synth_elapsed = time.perf_counter() - synth_started_at
         if not output_path.is_file() or output_path.stat().st_size == 0:
+            output_path.unlink(missing_ok=True)
             raise RuntimeError("Genie-TTS 未生成音频输出")
-        return output_path.read_bytes()
-    finally:
+        total_elapsed = time.perf_counter() - total_started_at
+        print(
+            "INFO: Genie-TTS timing: "
+            f"reference={reference_elapsed:.2f}s, "
+            f"synthesis={synth_elapsed:.2f}s, "
+            f"total={total_elapsed:.2f}s",
+            flush=True,
+        )
+        return output_path
+    except Exception:
         output_path.unlink(missing_ok=True)
+        raise

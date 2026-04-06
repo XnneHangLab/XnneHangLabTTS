@@ -1,5 +1,6 @@
 import os
 import sys
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -176,8 +177,6 @@ def test_synthesize_once_requires_reference_audio_and_text(monkeypatch, tmp_path
     )
 
     with pytest.raises(ValueError, match="参考音频"):
-        import asyncio
-
         asyncio.run(
             genie_runtime.synthesize_once(
                 text="你好",
