@@ -19,6 +19,11 @@ install-gpu-cu118:
 install-gpu-cu124:
   uv sync --group gpu-cu124
 
+# CUDA 12.8 —— RTX 50 系 (Blackwell) 专用，torch 2.7.0
+# 先确认驱动版本: nvidia-smi 右上角显示 "CUDA Version: 12.8"
+install-gpu-cu128:
+  uv sync --group gpu-cu128
+
 # 验证 torch 是否装好，顺手看 CUDA 是否可用
 check-torch:
   uv run --no-sync python -c "import torch; print('torch:', torch.__version__); print('cuda available:', torch.cuda.is_available()); print('cuda version:', torch.version.cuda)"
