@@ -19,15 +19,17 @@ _RE_TQDM_DOWNLOADING = re.compile(
 
 
 class _TqdmCapture:
-    """Context manager: redirect sys.stdout **and** sys.stderr to a pipe, parse
-    modelscope tqdm lines into structured ``download.file_progress`` emit events.
+    """Context manager: redirect sys.stderr to a pipe, parse modelscope tqdm lines
+    into structured ``download.file_progress`` emit events.
 
-    Two design choices:
-    * Both streams are captured because modelscope writes tqdm to stdout on some
-      versions (observed in Tauri sidecar logs labelled "stdout").
-    * ``write()`` appends ``\\n`` when the payload has none, so the reader
-      processes each tqdm ``\\r``-prefixed line immediately instead of waiting
-      for the next write to flush the buffer.
+    Important: only stderr is captured. stdout must remain untouched because the
+    Tauri sidecar IPC writes structured JSON to stdout; intercepting it breaks all
+    emit() calls.
+
+    ``write()`` appends ``\\n`` when the payload has none, so the reader processes
+    each tqdm ``\\r``-prefixed line immediately instead of buffering it until the
+    next write arrives.
+
     Non-tqdm lines are passed through to the original stderr so they remain
     visible in the sidecar log.
     """
@@ -36,9 +38,6 @@ class _TqdmCapture:
         self._emit = emit
         self._target_id = target_id
         self._last_percent: dict[str, int] = {}
-        # Save current streams as fallback for non-tqdm output.
-        # Updated again in __enter__ in case streams were swapped by the caller.
-        self._orig_stdout = sys.stdout
         self._orig_stderr = sys.stderr
         r, w = os.pipe()
         self._r = r
@@ -53,11 +52,10 @@ class _TqdmCapture:
             try:
                 encoded = data.encode("utf-8", errors="replace")
                 # Append \n so the reader processes this line immediately.
-                # tqdm uses \r to overwrite the current line; without forcing
-                # a newline the reader would buffer the text until the *next*
-                # write arrives, causing all progress to appear one step late
-                # (and the final update to be invisible when the download
-                # finishes before another write arrives).
+                # tqdm uses \r to overwrite the current line; without forcing a
+                # newline the reader would buffer the text until the *next* write
+                # arrives, causing progress to appear one step late and the final
+                # update to be lost if the download finishes first.
                 if encoded and not encoded.endswith(b"\n"):
                     encoded += b"\n"
                 os.write(self._w, encoded)
@@ -74,14 +72,11 @@ class _TqdmCapture:
     # ── context manager ────────────────────────────────────────────────────────
 
     def __enter__(self) -> "_TqdmCapture":
-        self._orig_stdout = sys.stdout
         self._orig_stderr = sys.stderr
-        sys.stdout = self  # type: ignore[assignment]
         sys.stderr = self  # type: ignore[assignment]
         return self
 
     def __exit__(self, *_) -> None:
-        sys.stdout = self._orig_stdout
         sys.stderr = self._orig_stderr
         if self._w is not None:
             try:
@@ -117,7 +112,7 @@ class _TqdmCapture:
     def _handle(self, line: str) -> None:
         m = _RE_TQDM_DOWNLOADING.search(line)
         if not m:
-            # Pass non-tqdm output to original stderr so it stays visible.
+            # Pass non-tqdm stderr output back so it remains visible.
             if line:
                 try:
                     self._orig_stderr.write(line + "\n")
