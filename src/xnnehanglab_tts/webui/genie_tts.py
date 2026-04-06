@@ -35,18 +35,34 @@ def _get_logic():
         return import_module("lab.api.logic.genie_tts")
 
 
-def _wav_bytes_to_audio(wav_bytes: bytes) -> tuple[int, np.ndarray]:
+def _list_characters() -> list[str]:
+    """List available genie-tts character dirs via XnneHangLabTTS runtime config.
+
+    Uses paths.genie_tts_root directly so it works without lab.toml being
+    present in the current directory.
+    """
+    try:
+        from xnnehanglab_tts.runtime.config import load_runtime_config
+        _, paths = load_runtime_config()
+        genie_tts_dir = paths.genie_tts_root
+        if not genie_tts_dir.is_dir():
+            print(f"WARNING: genie-tts models dir not found: {genie_tts_dir}", flush=True)
+            return []
+        return sorted(
+            entry.name
+            for entry in genie_tts_dir.iterdir()
+            if entry.is_dir() and not entry.name.startswith(".")
+        )
+    except Exception as exc:
+        print(f"ERROR: _list_characters failed: {exc}", flush=True)
+        return []
     data, sr = sf.read(io.BytesIO(wav_bytes), dtype="float32")
     return sr, data
 
 
 def _build_genie_tts_tab(gr):
     def list_characters() -> list[str]:
-        try:
-            return _get_logic().list_genie_tts_characters()
-        except Exception as exc:
-            print(f"ERROR: list_genie_tts_characters failed: {exc}", flush=True)
-            return []
+        return _list_characters()
 
     def refresh_character_list():
         choices = list_characters()
@@ -183,6 +199,18 @@ def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> N
     import sys
     import threading
     import time
+
+    # Change cwd to the XnneHangLab workspace so that load_settings_file("lab.toml")
+    # inside the lab logic finds the file when a model is loaded.
+    # All XnneHangLabTTS config paths are passed via absolute env vars
+    # (XH_VOICE_WORKSPACE_ROOT, XH_RUNTIME_CONFIG) so this is safe.
+    workspace = os.environ.get("XH_VOICE_WORKSPACE_ROOT", "")
+    if workspace and Path(workspace).is_dir():
+        os.chdir(workspace)
+        print(f"INFO: working directory set to {workspace}", flush=True)
+    else:
+        print(f"WARNING: XH_VOICE_WORKSPACE_ROOT not set or invalid ({workspace!r}); "
+              "lab.toml may not be found when loading models", flush=True)
 
     # Route all Python logging (uvicorn, Gradio internals) to stdout so the
     # Tauri log pipe captures them alongside print() output.
