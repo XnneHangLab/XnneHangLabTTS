@@ -58,6 +58,44 @@ def test_load_genie_module_uses_bundled_package_path_and_runtime_env(
     assert os.environ["GENIE_DATA_DIR"] == str(paths.genie_base_root)
 
 
+def test_patch_genie_resource_paths_updates_imported_modules(
+    monkeypatch, tmp_path: Path
+):
+    from xnnehanglab_tts.webui import genie_runtime
+
+    genie_data_dir = (tmp_path / "models" / "GenieData").resolve()
+    resources_module = SimpleNamespace(
+        GENIE_DATA_DIR="/wrong",
+        English_G2P_DIR="/wrong",
+        Chinese_G2P_DIR="/wrong",
+        HUBERT_MODEL_DIR="/wrong",
+        SV_MODEL="/wrong",
+        ROBERTA_MODEL_DIR="/wrong",
+    )
+    gsv_model_file = SimpleNamespace(
+        HUBERT_MODEL="/wrong",
+        HUBERT_MODEL_WEIGHT_FP16="/wrong",
+        ROBERTA_MODEL="/wrong",
+        ROBERTA_TOKENIZER="/wrong",
+    )
+    model_manager_module = SimpleNamespace(
+        HUBERT_MODEL_DIR="/wrong",
+        SV_MODEL="/wrong",
+        ROBERTA_MODEL_DIR="/wrong",
+        GSVModelFile=gsv_model_file,
+    )
+
+    monkeypatch.setitem(sys.modules, "genie_tts.Core.Resources", resources_module)
+    monkeypatch.setitem(sys.modules, "genie_tts.ModelManager", model_manager_module)
+
+    genie_runtime._patch_genie_resource_paths(genie_data_dir)
+
+    assert resources_module.GENIE_DATA_DIR == str(genie_data_dir)
+    assert resources_module.SV_MODEL == str(genie_data_dir / "speaker_encoder.onnx")
+    assert model_manager_module.ROBERTA_MODEL_DIR == str(genie_data_dir / "RoBERTa")
+    assert gsv_model_file.ROBERTA_MODEL == str(genie_data_dir / "RoBERTa" / "RoBERTa.onnx")
+
+
 def test_load_genie_tts_model_by_name_uses_local_runtime_model_dir(
     monkeypatch, tmp_path: Path
 ):
@@ -121,4 +159,3 @@ def test_synthesize_once_requires_reference_audio_and_text(monkeypatch, tmp_path
                 ref_text="参考文本",
             )
         )
-

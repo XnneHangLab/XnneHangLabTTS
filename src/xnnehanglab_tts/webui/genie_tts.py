@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import os
 import sys
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -49,6 +50,7 @@ def _build_genie_tts_tab(gr):
                 return
             yield "加载失败：状态异常"
         except Exception as exc:
+            traceback.print_exc(file=sys.stdout)
             print(f"ERROR: load model failed: {exc}", flush=True)
             yield f"加载失败: {exc}"
 
@@ -71,6 +73,7 @@ def _build_genie_tts_tab(gr):
         except gr.Error:
             raise
         except Exception as exc:
+            traceback.print_exc(file=sys.stdout)
             print(f"ERROR: synthesize failed: {exc}", flush=True)
             raise gr.Error(str(exc)) from exc
 
@@ -178,6 +181,7 @@ def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> N
 
     def _excepthook(args: threading.ExceptHookArgs) -> None:
         exc = args.exc_value
+        traceback.print_exception(args.exc_type, args.exc_value, args.exc_traceback, file=sys.stdout)
         try:
             import httpx
 

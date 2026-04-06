@@ -4,6 +4,7 @@ import asyncio
 import os
 import sys
 import tempfile
+import traceback
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -56,25 +57,71 @@ def _load_runtime_paths():
     return paths
 
 
+def _patch_genie_resource_paths(genie_data_dir: Path) -> None:
+    base_dir = genie_data_dir.resolve()
+    overrides = {
+        "GENIE_DATA_DIR": str(base_dir),
+        "English_G2P_DIR": str(base_dir / "G2P" / "EnglishG2P"),
+        "Chinese_G2P_DIR": str(base_dir / "G2P" / "ChineseG2P"),
+        "HUBERT_MODEL_DIR": str(base_dir / "chinese-hubert-base"),
+        "SV_MODEL": str(base_dir / "speaker_encoder.onnx"),
+        "ROBERTA_MODEL_DIR": str(base_dir / "RoBERTa"),
+    }
+
+    os.environ.update(overrides)
+
+    resources_module = sys.modules.get("genie_tts.Core.Resources")
+    if resources_module is not None:
+        for key, value in overrides.items():
+            setattr(resources_module, key, value)
+
+    model_manager_module = sys.modules.get("genie_tts.ModelManager")
+    if model_manager_module is not None:
+        setattr(model_manager_module, "HUBERT_MODEL_DIR", overrides["HUBERT_MODEL_DIR"])
+        setattr(model_manager_module, "SV_MODEL", overrides["SV_MODEL"])
+        setattr(model_manager_module, "ROBERTA_MODEL_DIR", overrides["ROBERTA_MODEL_DIR"])
+        gsv_model_file = getattr(model_manager_module, "GSVModelFile", None)
+        if gsv_model_file is not None:
+            setattr(gsv_model_file, "HUBERT_MODEL", str(base_dir / "chinese-hubert-base" / "chinese-hubert-base.onnx"))
+            setattr(
+                gsv_model_file,
+                "HUBERT_MODEL_WEIGHT_FP16",
+                str(base_dir / "chinese-hubert-base" / "chinese-hubert-base_weights_fp16.bin")
+            )
+            setattr(gsv_model_file, "ROBERTA_MODEL", str(base_dir / "RoBERTa" / "RoBERTa.onnx"))
+            setattr(gsv_model_file, "ROBERTA_TOKENIZER", str(base_dir / "RoBERTa" / "roberta_tokenizer"))
+
+
 def _load_genie_module(paths):
     repo_root = _resolve_repo_root()
     bundled_src = _ensure_bundled_genie_on_path(repo_root)
-    genie_data_dir = str(paths.genie_base_root)
+    genie_data_dir = paths.genie_base_root.resolve()
 
-    if _STATE.genie_data_dir and _STATE.genie_data_dir != genie_data_dir:
+    existing_resources = sys.modules.get("genie_tts.Core.Resources")
+    if existing_resources is not None:
+        existing_data_dir = getattr(existing_resources, "GENIE_DATA_DIR", None)
+        if existing_data_dir and Path(existing_data_dir).resolve() != genie_data_dir:
+            _clear_imported_genie_modules()
+            _STATE.loaded_character = None
+
+    if _STATE.genie_data_dir and Path(_STATE.genie_data_dir).resolve() != genie_data_dir:
         _clear_imported_genie_modules()
         _STATE.loaded_character = None
 
-    os.environ["GENIE_DATA_DIR"] = genie_data_dir
-    _STATE.genie_data_dir = genie_data_dir
+    _patch_genie_resource_paths(genie_data_dir)
+    _STATE.genie_data_dir = str(genie_data_dir)
 
     try:
-        return import_module("genie_tts")
+        module = import_module("genie_tts")
+        _patch_genie_resource_paths(genie_data_dir)
+        return module
     except ModuleNotFoundError as exc:
+        traceback.print_exc(file=sys.stdout)
         if exc.name == "genie_tts":
             raise RuntimeError(f"找不到内置 genie_tts 包: {bundled_src}") from exc
         raise RuntimeError(f"Genie-TTS 依赖缺失: {exc.name}") from exc
     except Exception as exc:
+        traceback.print_exc(file=sys.stdout)
         raise RuntimeError(f"加载 Genie-TTS 失败: {exc}") from exc
 
 
