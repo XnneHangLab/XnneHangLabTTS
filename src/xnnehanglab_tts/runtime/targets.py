@@ -3,7 +3,7 @@ import os
 from .models import DownloadStep, DownloadTargetSpec, ManagedPath
 from .paths import RuntimePaths
 
-GENIE_BASE_REPO_ID = os.getenv("XH_GENIE_BASE_REPO_ID", "XnneHangLab/GenieData")
+GENIE_BASE_REPO_ID = os.getenv("XH_GENIE_BASE_REPO_ID", "xnnehang/xnnehanglab-geniedata")
 GENIE_BASE_REQUIRED_PATHS = [
     "speaker_encoder.onnx",
     "chinese-hubert-base/chinese-hubert-base.onnx",
