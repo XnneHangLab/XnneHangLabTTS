@@ -4,6 +4,7 @@ from .models import DownloadStep, DownloadTargetSpec, ManagedPath
 from .paths import RuntimePaths
 
 GENIE_BASE_REPO_ID = os.getenv("XH_GENIE_BASE_REPO_ID", "xnnehang/xnnehanglab-geniedata")
+FAST_LANGDETECT_LID176_REPO_ID = "xnnehang/fast-langdetect-lid176"
 QWEN_TTS_0_6B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 QWEN_TTS_1_7B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 LUMING_GENIE_TTS_REPO_ID = "xnnehang/luming-genie-tts-v2-pro-plus"
@@ -13,6 +14,7 @@ GENIE_BASE_REQUIRED_PATHS = [
     "chinese-hubert-base/chinese-hubert-base.onnx",
     "G2P/EnglishG2P/cmudict.rep",
     "G2P/ChineseG2P/opencpop-strict.txt",
+    "lid.176.bin",
 ]
 GENIE_BASE_REQUIRED_FILE_PATHS = list(GENIE_BASE_REQUIRED_PATHS)
 GENIE_BASE_REQUIRED_DIR_PATHS: list[str] = []
@@ -62,6 +64,17 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
             required_paths=GENIE_BASE_REQUIRED_PATHS,
             required_file_paths=GENIE_BASE_REQUIRED_FILE_PATHS,
             required_dir_paths=GENIE_BASE_REQUIRED_DIR_PATHS,
+            download_steps=[
+                DownloadStep(
+                    repo_id=GENIE_BASE_REPO_ID,
+                    local_dir=paths.genie_base_root,
+                ),
+                DownloadStep(
+                    repo_id=FAST_LANGDETECT_LID176_REPO_ID,
+                    local_dir=paths.genie_base_root,
+                    allow_file_pattern=["lid.176.bin"],
+                ),
+            ],
         )
 
     if target_id == "gsv-lite":

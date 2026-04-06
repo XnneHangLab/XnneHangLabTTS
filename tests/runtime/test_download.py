@@ -49,6 +49,11 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
             }
         )
         resource_root = Path(local_dir)
+        if allow_file_pattern == ["lid.176.bin"]:
+            resource_root.mkdir(parents=True, exist_ok=True)
+            (resource_root / "lid.176.bin").write_text("ok", encoding="utf-8")
+            return str(resource_root)
+
         (resource_root / "speaker_encoder.onnx").parent.mkdir(parents=True, exist_ok=True)
         (resource_root / "speaker_encoder.onnx").write_text("ok", encoding="utf-8")
         (resource_root / "chinese-hubert-base").mkdir(parents=True, exist_ok=True)
@@ -76,28 +81,42 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
 
     assert calls == [
         {
-            "model_id": target.repo_id,
-            "local_dir": str(target.local_dir),
-            "allow_file_pattern": target.allow_file_pattern or None,
-        }
+            "model_id": target.download_steps[0].repo_id,
+            "local_dir": str(target.download_steps[0].local_dir),
+            "allow_file_pattern": None,
+        },
+        {
+            "model_id": target.download_steps[1].repo_id,
+            "local_dir": str(target.download_steps[1].local_dir),
+            "allow_file_pattern": ["lid.176.bin"],
+        },
     ]
     assert events == [
         {
             "event": "download.started",
             "target": "genie-base",
             "status": "preparing",
-            "message": "开始准备下载 GenieData 基础资源",
+            "message": "开始准备下载 GenieData 基础资源（共 2 个子资源）",
             "progressCurrent": 0,
-            "progressTotal": 3,
+            "progressTotal": 4,
             "progressUnit": "stage",
         },
         {
             "event": "download.progress",
             "target": "genie-base",
             "status": "downloading",
-            "message": f"正在从 ModelScope 下载 {target.repo_id}",
+            "message": f"下载 {target.download_steps[0].repo_id.split('/')[-1]}（1/2）",
             "progressCurrent": 1,
-            "progressTotal": 3,
+            "progressTotal": 4,
+            "progressUnit": "stage",
+        },
+        {
+            "event": "download.progress",
+            "target": "genie-base",
+            "status": "downloading",
+            "message": f"下载 {target.download_steps[1].repo_id.split('/')[-1]}（2/2）",
+            "progressCurrent": 2,
+            "progressTotal": 4,
             "progressUnit": "stage",
         },
         {
@@ -105,8 +124,8 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
             "target": "genie-base",
             "status": "verifying",
             "message": "开始校验 GenieData 基础资源",
-            "progressCurrent": 2,
-            "progressTotal": 3,
+            "progressCurrent": 3,
+            "progressTotal": 4,
             "progressUnit": "stage",
         },
         {
@@ -114,12 +133,24 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
             "target": "genie-base",
             "status": "completed",
             "message": "GenieData 基础资源 下载完成",
-            "progressCurrent": 3,
-            "progressTotal": 3,
+            "progressCurrent": 4,
+            "progressTotal": 4,
             "progressUnit": "stage",
         },
     ]
     assert result.status == "ready"
+
+
+def test_genie_base_target_includes_fast_langdetect_model_step(tmp_path: Path):
+    _, paths = load_runtime_config(_write_runtime_config(tmp_path))
+    target = get_download_target("genie-base", paths)
+
+    assert target.required_paths[-1] == "lid.176.bin"
+    assert target.download_steps[-1] == DownloadStep(
+        repo_id="xnnehang/fast-langdetect-lid176",
+        local_dir=paths.genie_base_root,
+        allow_file_pattern=["lid.176.bin"],
+    )
 
 
 def test_download_target_bundle_raises_with_missing_paths_when_verify_not_ready(
@@ -151,6 +182,7 @@ def test_download_target_bundle_raises_with_missing_paths_when_verify_not_ready(
     assert "chinese-hubert-base/chinese-hubert-base.onnx" in message
     assert [event["event"] for event in events] == [
         "download.started",
+        "download.progress",
         "download.progress",
         "download.verifying",
     ]
