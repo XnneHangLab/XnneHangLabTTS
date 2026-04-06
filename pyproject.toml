@@ -61,7 +61,7 @@ qwen-tts = [
 ]
 
 [tool.uv]
-default-groups = ["base", "dev"]
+default-groups = ["base", "dev", "genie-tts"]
 
 # ── PyTorch 索引 ─────────────────────────────────────────────────────────────
 # Windows → pytorch-gpu；Linux → pytorch-cpu
