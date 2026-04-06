@@ -72,7 +72,7 @@ explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-gpu"
-url = "https://download.pytorch.org/whl/cu128"
+url = "https://download.pytorch.org/whl/cu128"  # SWITCH: just use-cu118/cu124/cu128/use-cpu
 explicit = true
 
 [tool.uv.sources]
