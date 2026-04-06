@@ -23,41 +23,14 @@ Issues = "https://github.com/XnneHangLab/XnneHangLabTTS/issues"
 [dependency-groups]
 base = [
   "numpy==1.26.4",
+  "torch>=2.6.0",
+  "torchaudio>=2.6.0",
 ]
 
 dev = [
   "pytest>=8.3.4",
   "ruff>=0.9.3",
   "pyright>=1.1.391",
-]
-
-cpu = [
-  "torch @ https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torchaudio @ https://download.pytorch.org/whl/cpu/torchaudio-2.6.0%2Bcpu-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torch @ https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
-  "torchaudio @ https://download.pytorch.org/whl/cpu/torchaudio-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
-]
-
-gpu = [
-  "torch @ https://download.pytorch.org/whl/cu118/torch-2.6.0%2Bcu118-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torchaudio @ https://download.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torch @ https://download.pytorch.org/whl/cu118/torch-2.6.0%2Bcu118-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
-  "torchaudio @ https://download.pytorch.org/whl/cu118/torchaudio-2.6.0%2Bcu118-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
-]
-
-gpu-cu124 = [
-  "torch @ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torchaudio @ https://download.pytorch.org/whl/cu124/torchaudio-2.6.0%2Bcu124-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torch @ https://download.pytorch.org/whl/cu124/torch-2.6.0%2Bcu124-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
-  "torchaudio @ https://download.pytorch.org/whl/cu124/torchaudio-2.6.0%2Bcu124-cp311-cp311-linux_x86_64.whl ; sys_platform == 'linux'",
-]
-
-# RTX 50 系 (Blackwell) 需要 CUDA 12.8，最低 torch 2.7.0
-gpu-cu128 = [
-  "torch @ https://download.pytorch.org/whl/cu128/torch-2.7.0%2Bcu128-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torchaudio @ https://download.pytorch.org/whl/cu128/torchaudio-2.7.0%2Bcu128-cp311-cp311-win_amd64.whl ; sys_platform == 'win32'",
-  "torch @ https://download.pytorch.org/whl/cu128/torch-2.7.0%2Bcu128-cp311-cp311-manylinux_2_28_x86_64.whl ; sys_platform == 'linux'",
-  "torchaudio @ https://download.pytorch.org/whl/cu128/torchaudio-2.7.0%2Bcu128-cp311-cp311-manylinux_2_28_x86_64.whl ; sys_platform == 'linux'",
 ]
 
 genie-tts = [
@@ -88,13 +61,50 @@ qwen-tts = [
 
 [tool.uv]
 default-groups = ["base", "dev"]
-conflicts = [
-  [
-    { group = "cpu" },
-    { group = "gpu" },
-    { group = "gpu-cu124" },
-    { group = "gpu-cu128" },
-  ],
+
+# ── PyTorch 索引 ─────────────────────────────────────────────────────────────
+# Linux / 无 GPU：始终使用 CPU 版本
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+# GTX 10xx ~ RTX 20/30 系，nvidia-smi 显示 CUDA ≤ 11.8 时：
+#   1. 取消注释下方三行
+#   2. 注释掉下面 pytorch-cu128 的三行
+#   3. 将 [tool.uv.sources] 中的 "pytorch-cu128" 改为 "pytorch-cu118"
+#   4. 删除 .venv 和 uv.lock，重新执行 uv sync
+# [[tool.uv.index]]
+# name = "pytorch-cu118"
+# url = "https://download.pytorch.org/whl/cu118"
+# explicit = true
+
+# RTX 20/30/40 系新驱动，nvidia-smi 显示 CUDA 12.4 时：
+#   1. 取消注释下方三行
+#   2. 注释掉下面 pytorch-cu128 的三行
+#   3. 将 [tool.uv.sources] 中的 "pytorch-cu128" 改为 "pytorch-cu124"
+#   4. 删除 .venv 和 uv.lock，重新执行 uv sync
+# [[tool.uv.index]]
+# name = "pytorch-cu124"
+# url = "https://download.pytorch.org/whl/cu124"
+# explicit = true
+
+# RTX 50 系 Blackwell，nvidia-smi 显示 CUDA ≥ 12.8 —— Windows 默认
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+# Windows → GPU (默认 cu128)；Linux → CPU
+# 切换 CUDA 版本时，同步修改上方启用的 index name
+torch = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
+]
+torchaudio = [
+  { index = "pytorch-cu128", marker = "sys_platform == 'win32'" },
+  { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },
 ]
 
 [tool.ruff]

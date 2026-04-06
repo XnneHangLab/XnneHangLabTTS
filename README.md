@@ -123,21 +123,44 @@
 
 需要先安装 [uv](https://docs.astral.sh/uv/getting-started/installation/) 和 [just](https://just.systems/man/en/)。
 
-### 安装 torch
+### 安装依赖
 
-运行前先用 `nvidia-smi` 确认驱动版本，然后选对应命令：
+```bash
+uv sync
+```
 
-| 情况 | 命令 |
-|---|---|
-| 无独显 / 只测试 | `just install-cpu` |
-| RTX 10/20/30 系，旧驱动 | `just install-gpu-cu118` |
-| RTX 20/30/40 系，新驱动（推荐） | `just install-gpu-cu124` |
-| RTX 50 系 (Blackwell) | `just install-gpu-cu128` |
+### 选择 PyTorch 版本
+
+默认配置：**Windows → CUDA 12.8（RTX 50 系 / Blackwell）**，**Linux → CPU**。
+
+先运行 `nvidia-smi`，查看右上角的 **CUDA Version**，对照下表：
+
+| GPU | CUDA Version | 操作 |
+|-----|-------------|------|
+| 无独显 / 纯测试 | — | 无需修改（Linux 默认 CPU） |
+| GTX 10xx ~ RTX 20/30 系旧驱动 | ≤ 11.8 | 切换到 `pytorch-cu118`（见 `pyproject.toml` 注释） |
+| RTX 20/30/40 系新驱动 | 12.4 | 切换到 `pytorch-cu124`（见 `pyproject.toml` 注释） |
+| RTX 50 系 (Blackwell) | ≥ 12.8 | 默认，无需修改 |
+
+切换版本时，按 `pyproject.toml` 中各 index 块的注释步骤操作。
+
+> [!WARNING]
+> 切换 torch 版本前，**必须先删除 `.venv` 和 `uv.lock`**，否则旧版本不会被替换：
+>
+> ```bash
+> # Linux / macOS
+> rm -rf .venv uv.lock
+>
+> # Windows PowerShell
+> Remove-Item -Recurse -Force .venv, uv.lock
+> ```
+>
+> 然后重新执行 `uv sync`。
 
 安装完成后验证：
 
 ```
-just check-torch
+just torch-check
 ```
 
 ## 与 XnneHangLab 的关系
