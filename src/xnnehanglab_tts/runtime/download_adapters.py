@@ -199,7 +199,6 @@ class ModelscopeDownloadAdapter:
         allow_file_pattern = target.allow_file_pattern if step is None else step.allow_file_pattern
         return {
             "model_id": repo_id,
-            "cache_dir": str(target.cache_dir),
             "local_dir": str(local_dir),
             "allow_file_pattern": allow_file_pattern or None,
         }

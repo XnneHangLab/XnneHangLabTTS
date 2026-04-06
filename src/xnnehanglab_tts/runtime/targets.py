@@ -54,7 +54,6 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
             repo_id=GENIE_BASE_REPO_ID,
             allow_file_pattern=[],
             local_dir=paths.genie_base_root,
-            cache_dir=paths.modelscope_cache_root,
             resource_root=paths.genie_base_root,
             required_paths=GENIE_BASE_REQUIRED_PATHS,
             required_file_paths=GENIE_BASE_REQUIRED_FILE_PATHS,
@@ -70,7 +69,6 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
             repo_id="pengzhendong/chinese-hubert-base",  # primary (unused when steps present)
             allow_file_pattern=[],
             local_dir=root,
-            cache_dir=paths.modelscope_cache_root,
             resource_root=root,
             required_paths=GSV_LITE_REQUIRED_DIR_PATHS,
             required_dir_paths=GSV_LITE_REQUIRED_DIR_PATHS,
