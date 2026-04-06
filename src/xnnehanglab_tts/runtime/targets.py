@@ -6,6 +6,7 @@ from .paths import RuntimePaths
 GENIE_BASE_REPO_ID = os.getenv("XH_GENIE_BASE_REPO_ID", "xnnehang/xnnehanglab-geniedata")
 QWEN_TTS_0_6B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 QWEN_TTS_1_7B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+LUMING_GENIE_TTS_REPO_ID = "xnnehang/luming-genie-tts-v2-pro-plus"
 
 GENIE_BASE_REQUIRED_PATHS = [
     "speaker_encoder.onnx",
@@ -120,6 +121,19 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
             resource_root=paths.qwen_tts_1_7b_root,
             required_paths=QWEN_TTS_REQUIRED_PATHS,
             required_file_paths=QWEN_TTS_REQUIRED_PATHS,
+        )
+
+    if target_id == "luming-genie-tts-v2-pro-plus":
+        return DownloadTargetSpec(
+            target_id="luming-genie-tts-v2-pro-plus",
+            label="路鸣 Genie-TTS v2 Pro+",
+            provider="modelscope",
+            repo_id=LUMING_GENIE_TTS_REPO_ID,
+            allow_file_pattern=[],
+            local_dir=paths.genie_tts_luming_v2_pro_plus_root,
+            resource_root=paths.genie_tts_luming_v2_pro_plus_root,
+            required_paths=[],
+            required_file_paths=[],
         )
 
     raise KeyError(f"unsupported target: {target_id}")

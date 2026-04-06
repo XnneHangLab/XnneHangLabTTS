@@ -66,6 +66,7 @@ def ensure_managed_dirs(paths: RuntimePaths) -> None:
         paths.models_root,
         paths.genie_base_root,
         paths.genie_characters_root,
+        paths.genie_tts_root,
         paths.gsv_lite_root,
         paths.qwen_tts_0_6b_root,
         paths.qwen_tts_1_7b_root,

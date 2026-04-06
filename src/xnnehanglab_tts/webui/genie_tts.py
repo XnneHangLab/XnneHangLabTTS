@@ -17,25 +17,40 @@ def _wav_bytes_to_audio(wav_bytes: bytes) -> tuple[int, np.ndarray]:
     return sr, data
 
 
-def _build_demo():
-    import gradio as gr
-
-    def load_model():
-        yield "⏳ 正在加载模型，请稍候…"
+def _build_genie_tts_tab(gr):
+    def list_characters() -> list[str]:
         try:
-            logic = _get_logic()
-            logic.load_genie_tts_model()
-            status = logic.get_genie_tts_status()
-            yield "✅ 模型已加载" if status.get("loaded") else "❌ 模型加载失败（状态异常）"
-        except Exception as exc:
-            yield f"❌ 加载失败: {exc}"
+            return _get_logic().list_genie_tts_characters()
+        except Exception:
+            return []
+
+    def refresh_character_list():
+        choices = list_characters()
+        value = choices[0] if choices else None
+        return gr.Dropdown(choices=choices, value=value)
 
     def refresh_status() -> str:
         try:
             status = _get_logic().get_genie_tts_status()
-            return "✅ 已加载" if status.get("loaded") else "⚠️ 未加载"
+            loaded_char = status.get("loaded_character")
+            if status.get("loaded"):
+                return f"✅ 已加载: {loaded_char}"
+            return "⚠️ 未加载"
         except Exception as exc:
             return f"❌ {exc}"
+
+    def load_model(character_name: str | None):
+        if not character_name:
+            yield "❌ 请先选择角色模型"
+            return
+        yield f"⏳ 正在加载 {character_name}，请稍候…"
+        try:
+            logic = _get_logic()
+            logic.load_genie_tts_model_by_name(character_name)
+            status = logic.get_genie_tts_status()
+            yield f"✅ 已加载: {status.get('loaded_character')}" if status.get("loaded") else "❌ 加载失败（状态异常）"
+        except Exception as exc:
+            yield f"❌ 加载失败: {exc}"
 
     async def synthesize(
         text: str,
@@ -48,7 +63,7 @@ def _build_demo():
 
         logic = _get_logic()
         if not logic.get_genie_tts_status().get("loaded"):
-            raise gr.Error("模型尚未加载，请先点击「加载模型」")
+            raise gr.Error("模型尚未加载，请先选择角色并点击「加载模型」")
 
         wav_bytes = await logic.synthesize_once(
             text=text,
@@ -57,9 +72,10 @@ def _build_demo():
         )
         return _wav_bytes_to_audio(wav_bytes)
 
-    with gr.Blocks(title="Genie-TTS") as demo:
-        gr.Markdown("# Genie-TTS 语音合成")
+    initial_choices = list_characters()
+    initial_value = initial_choices[0] if initial_choices else None
 
+    with gr.Tab("Genie-TTS"):
         with gr.Row():
             status_box = gr.Textbox(
                 label="模型状态",
@@ -69,7 +85,16 @@ def _build_demo():
             )
             with gr.Column(scale=1, min_width=120):
                 load_btn = gr.Button("加载模型")
-                refresh_btn = gr.Button("刷新状态")
+                refresh_status_btn = gr.Button("刷新状态")
+
+        with gr.Row():
+            character_dropdown = gr.Dropdown(
+                label="角色模型",
+                choices=initial_choices,
+                value=initial_value,
+                scale=4,
+            )
+            refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100)
 
         with gr.Row():
             with gr.Column():
@@ -79,11 +104,11 @@ def _build_demo():
                     lines=4,
                 )
                 ref_audio_input = gr.Audio(
-                    label="参考音频（可选）",
+                    label="参考音频",
                     type="filepath",
                 )
                 ref_text_input = gr.Textbox(
-                    label="参考文本（可选，与参考音频内容一致）",
+                    label="参考文本（与参考音频内容一致）",
                     lines=2,
                 )
                 synth_btn = gr.Button("合成", variant="primary")
@@ -91,15 +116,44 @@ def _build_demo():
             with gr.Column():
                 audio_output = gr.Audio(label="合成结果", interactive=False)
 
-        load_btn.click(fn=load_model, outputs=status_box)
-        refresh_btn.click(fn=refresh_status, outputs=status_box)
+        load_btn.click(fn=load_model, inputs=[character_dropdown], outputs=status_box)
+        refresh_status_btn.click(fn=refresh_status, outputs=status_box)
+        refresh_chars_btn.click(fn=refresh_character_list, outputs=character_dropdown)
         synth_btn.click(
             fn=synthesize,
             inputs=[text_input, ref_audio_input, ref_text_input],
             outputs=audio_output,
         )
+
+        return status_box
+
+
+def _build_demo():
+    import gradio as gr
+
+    with gr.Blocks(title="XnneHangLab TTS") as demo:
+        gr.Markdown("# XnneHangLab TTS 语音合成")
+
+        genie_status_box = _build_genie_tts_tab(gr)
+
+        with gr.Tab("GSV-Lite"):
+            gr.Markdown("## GSV-Lite\n\nGSV-Lite 功能开发中，敬请期待。")
+
+        with gr.Tab("Faster-Qwen-TTS"):
+            gr.Markdown("## Faster-Qwen-TTS\n\nFaster-Qwen-TTS 功能开发中，敬请期待。")
+
+        def _refresh_status_on_load() -> str:
+            try:
+                status = _get_logic().get_genie_tts_status()
+                loaded_char = status.get("loaded_character")
+                if status.get("loaded"):
+                    return f"✅ 已加载: {loaded_char}"
+                return "⚠️ 未加载"
+            except Exception as exc:
+                return f"❌ {exc}"
+
         # Non-blocking: page renders first, then status check fills in.
-        demo.load(fn=refresh_status, outputs=status_box)
+        demo.load(fn=_refresh_status_on_load, outputs=genie_status_box)
 
     return demo
 
