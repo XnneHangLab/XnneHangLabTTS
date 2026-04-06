@@ -19,25 +19,29 @@ _RE_TQDM_DOWNLOADING = re.compile(
 
 
 class _TqdmCapture:
-    """Context manager: redirect sys.stderr to a pipe, parse modelscope tqdm lines
-    into structured ``download.file_progress`` emit events.
+    """Context manager: redirect sys.stdout and sys.stderr to a pipe, parse
+    modelscope tqdm lines into structured ``download.file_progress`` emit events.
 
-    Important: only stderr is captured. stdout must remain untouched because the
-    Tauri sidecar IPC writes structured JSON to stdout; intercepting it breaks all
-    emit() calls.
+    The Tauri sidecar IPC also uses stdout — emit() writes single-line JSON
+    objects there.  We distinguish the two by their first non-whitespace byte:
+    JSON events start with ``{`` and are passed straight through to the original
+    stdout so the Tauri backend receives them unchanged.  Everything else
+    (tqdm bars, plain log text) is captured in the pipe.
 
-    ``write()`` appends ``\\n`` when the payload has none, so the reader processes
-    each tqdm ``\\r``-prefixed line immediately instead of buffering it until the
+    ``write()`` appends ``\\n`` when the payload has none so the reader processes
+    each ``\\r``-prefixed tqdm line immediately instead of buffering until the
     next write arrives.
 
-    Non-tqdm lines are passed through to the original stderr so they remain
-    visible in the sidecar log.
+    Non-tqdm lines that reach the pipe are forwarded to the original stderr so
+    they remain visible in the sidecar log.
     """
 
     def __init__(self, emit: EmitEvent, target_id: str) -> None:
         self._emit = emit
         self._target_id = target_id
         self._last_percent: dict[str, int] = {}
+        # Initialised here as a safe fallback; updated again in __enter__.
+        self._orig_stdout = sys.stdout
         self._orig_stderr = sys.stderr
         r, w = os.pipe()
         self._r = r
@@ -48,14 +52,23 @@ class _TqdmCapture:
     # ── fake file interface ────────────────────────────────────────────────────
 
     def write(self, data: str) -> int:
+        # IPC events are single-line JSON written by emit() to stdout.
+        # Detect by leading '{' and pass through so Tauri receives them.
+        if data.lstrip().startswith("{"):
+            try:
+                self._orig_stdout.write(data)
+                self._orig_stdout.flush()
+            except Exception:
+                pass
+            return len(data)
+        # All other output (tqdm bars, plain log lines) goes into the pipe.
         if self._w is not None:
             try:
                 encoded = data.encode("utf-8", errors="replace")
                 # Append \n so the reader processes this line immediately.
-                # tqdm uses \r to overwrite the current line; without forcing a
-                # newline the reader would buffer the text until the *next* write
-                # arrives, causing progress to appear one step late and the final
-                # update to be lost if the download finishes first.
+                # tqdm uses \r to overwrite; without a newline the reader
+                # buffers the text until the next write, making progress
+                # appear one step late and losing the final update.
                 if encoded and not encoded.endswith(b"\n"):
                     encoded += b"\n"
                 os.write(self._w, encoded)
@@ -64,7 +77,10 @@ class _TqdmCapture:
         return len(data)
 
     def flush(self) -> None:
-        pass
+        try:
+            self._orig_stdout.flush()
+        except Exception:
+            pass
 
     def isatty(self) -> bool:
         return False
@@ -72,11 +88,14 @@ class _TqdmCapture:
     # ── context manager ────────────────────────────────────────────────────────
 
     def __enter__(self) -> "_TqdmCapture":
+        self._orig_stdout = sys.stdout
         self._orig_stderr = sys.stderr
+        sys.stdout = self  # type: ignore[assignment]
         sys.stderr = self  # type: ignore[assignment]
         return self
 
     def __exit__(self, *_) -> None:
+        sys.stdout = self._orig_stdout
         sys.stderr = self._orig_stderr
         if self._w is not None:
             try:
@@ -112,7 +131,7 @@ class _TqdmCapture:
     def _handle(self, line: str) -> None:
         m = _RE_TQDM_DOWNLOADING.search(line)
         if not m:
-            # Pass non-tqdm stderr output back so it remains visible.
+            # Forward non-tqdm output to original stderr so it stays visible.
             if line:
                 try:
                     self._orig_stderr.write(line + "\n")
