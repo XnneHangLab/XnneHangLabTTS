@@ -158,7 +158,7 @@ def test_load_genie_tts_model_by_name_uses_local_runtime_model_dir(
             "character_name": "luming-v2-pro-plus",
             "onnx_model_dir": str(model_dir),
             "language": "auto",
-            "use_roberta": False,
+            "use_roberta": True,
         }
     ]
     assert status == {

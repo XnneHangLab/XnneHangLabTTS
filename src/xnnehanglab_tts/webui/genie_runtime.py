@@ -218,7 +218,7 @@ def load_genie_tts_model_by_name(character_name: str) -> None:
         character_name=character_name,
         onnx_model_dir=str(model_dir),
         language="auto",
-        use_roberta=False,
+        use_roberta=True,
     )
     _STATE.loaded_character = character_name
 
@@ -252,7 +252,7 @@ async def synthesize_once(
             audio_path=str(ref_audio),
             audio_text=normalized_ref_text,
             language="auto",
-            use_roberta=False,
+            use_roberta=True,
         )
         reference_elapsed = time.perf_counter() - reference_started_at
         synth_started_at = time.perf_counter()
