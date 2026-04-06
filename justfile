@@ -6,7 +6,7 @@ sync-submodule:
 
 # ── PyTorch 版本切换 ──────────────────────────────────────────────────────────
 _use variant:
-    cp torch-variants/{{variant}}.toml uv.toml
+    python scripts/use_torch.py {{variant}}
     rm -rf .venv || (echo "Error: 无法删除 .venv，请关闭占用该目录的程序（VS Code、Python 进程、终端等）后重试" && exit 1)
     rm -f uv.lock
 
