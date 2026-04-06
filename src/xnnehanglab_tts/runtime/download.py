@@ -17,6 +17,11 @@ _RE_TQDM_DOWNLOADING = re.compile(
     r"(?:[^\|]*\|[^\|]*\|\s*([\d.]+\w+)/([\d.]+\w+))?"
 )
 
+# Matches any tqdm-like bar (e.g. "Processing 25 items: 32%|###...")
+# Used to silently drop non-download tqdm output instead of forwarding it to
+# stderr where it would appear as garbled text.
+_RE_TQDM_ANY = re.compile(r"\d+%\|")
+
 
 class _TqdmCapture:
     """Context manager: redirect sys.stdout and sys.stderr to a pipe, parse
@@ -131,7 +136,11 @@ class _TqdmCapture:
     def _handle(self, line: str) -> None:
         m = _RE_TQDM_DOWNLOADING.search(line)
         if not m:
-            # Forward non-tqdm output to original stderr so it stays visible.
+            # Silently drop any other tqdm bar (e.g. "Processing 25 items: 32%|...")
+            # so it doesn't appear as garbled text in the sidecar log.
+            if _RE_TQDM_ANY.search(line):
+                return
+            # Forward genuine non-tqdm output (warnings, errors) to stderr.
             if line:
                 try:
                     self._orig_stderr.write(line + "\n")
