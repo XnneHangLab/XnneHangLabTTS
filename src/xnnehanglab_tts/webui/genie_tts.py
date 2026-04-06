@@ -102,9 +102,4 @@ def _build_demo():
 
 
 def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> None:
-    _build_demo().launch(
-        server_name=host,
-        server_port=port,
-        share=share,
-        analytics_enabled=False,
-    )
+    _build_demo().launch(server_name=host, server_port=port, share=share)
