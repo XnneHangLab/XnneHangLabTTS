@@ -29,3 +29,8 @@ use-cu128: (_use "cu128")
 # 验证 torch 是否装好，顺手看 CUDA 是否可用
 torch-check:
   uv run --no-sync python -c "import torch; print('torch:', torch.__version__); print('cuda available:', torch.cuda.is_available()); print('cuda version:', torch.version.cuda)"
+
+# ── 资源下载 ──────────────────────────────────────────────────────────────────
+# 下载 GSV-Lite 推理依赖（chinese-hubert-base / roberta / g2p / sv，约 2 GB）
+download-gsv-lite:
+  uv run --no-sync xnnehanglab-tts download gsv-lite
