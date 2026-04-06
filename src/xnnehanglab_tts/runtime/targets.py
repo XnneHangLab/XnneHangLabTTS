@@ -36,11 +36,6 @@ def build_managed_paths(paths: RuntimePaths) -> list[ManagedPath]:
         ManagedPath(key="workspace", label="根目录", path=str(paths.workspace_root)),
         ManagedPath(key="models", label="模型目录", path=str(paths.models_root)),
         ManagedPath(key="genieBase", label="Genie 基础资源", path=str(paths.genie_base_root)),
-        ManagedPath(
-            key="modelscopeCache",
-            label="ModelScope 缓存",
-            path=str(paths.modelscope_cache_root),
-        ),
         ManagedPath(key="downloadLogs", label="下载日志", path=str(paths.download_logs_root)),
     ]
 
