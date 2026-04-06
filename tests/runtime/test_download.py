@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 from xnnehanglab_tts.runtime.config import load_runtime_config
-from xnnehanglab_tts.runtime.download import _TqdmCapture, download_target_bundle
+from xnnehanglab_tts.runtime.download import download_target_bundle
+from xnnehanglab_tts.runtime.download_adapters import _TqdmCapture
+from xnnehanglab_tts.runtime.models import DownloadStep, DownloadTargetSpec, ResourceState
 from xnnehanglab_tts.runtime.targets import get_download_target
 
 
@@ -200,3 +202,133 @@ def test_tqdm_capture_drops_modelscope_info_logs():
         os.close(capture._w)
 
     assert events == []
+
+
+def test_download_target_bundle_selects_provider_and_verifier_from_target(tmp_path: Path):
+    events = []
+    provider_calls = []
+    verifier_calls = []
+
+    target = DownloadTargetSpec(
+        target_id="custom-target",
+        label="自定义资源",
+        provider="fake-provider",
+        verifier="fake-verifier",
+        repo_id="custom/source",
+        allow_file_pattern=[],
+        local_dir=tmp_path / "custom",
+        cache_dir=tmp_path / "cache",
+        resource_root=tmp_path / "custom",
+        required_paths=["ready.txt"],
+    )
+
+    class FakeProvider:
+        def download(self, *, target, step=None):
+            provider_calls.append(
+                {
+                    "target_id": target.target_id,
+                    "step_repo_id": None if step is None else step.repo_id,
+                }
+            )
+
+    class FakeVerifier:
+        def verify(self, target):
+            verifier_calls.append(target.target_id)
+            return ResourceState(
+                key=target.target_id,
+                label=target.label,
+                status="ready",
+                path=str(target.resource_root),
+                missing_paths=[],
+            )
+
+    result = download_target_bundle(
+        target=target,
+        emit=events.append,
+        provider_adapters={"fake-provider": FakeProvider()},
+        verifiers={"fake-verifier": FakeVerifier()},
+    )
+
+    assert provider_calls == [{"target_id": "custom-target", "step_repo_id": None}]
+    assert verifier_calls == ["custom-target"]
+    assert [event["event"] for event in events] == [
+        "download.started",
+        "download.progress",
+        "download.verifying",
+        "download.completed",
+    ]
+    assert result.status == "ready"
+
+
+def test_download_target_bundle_uses_step_provider_override_and_target_fallback(tmp_path: Path):
+    events = []
+    provider_calls = []
+
+    target = DownloadTargetSpec(
+        target_id="custom-bundle",
+        label="自定义资源包",
+        provider="provider-a",
+        verifier="fake-verifier",
+        repo_id="bundle/primary",
+        allow_file_pattern=[],
+        local_dir=tmp_path / "bundle",
+        cache_dir=tmp_path / "cache",
+        resource_root=tmp_path / "bundle",
+        required_paths=[],
+        download_steps=[
+            DownloadStep(
+                repo_id="bundle/step-a",
+                local_dir=tmp_path / "bundle" / "a",
+            ),
+            DownloadStep(
+                provider="provider-b",
+                repo_id="bundle/step-b",
+                local_dir=tmp_path / "bundle" / "b",
+            ),
+        ],
+    )
+
+    class RecordingProvider:
+        def __init__(self, name: str):
+            self.name = name
+
+        def download(self, *, target, step=None):
+            provider_calls.append(
+                {
+                    "provider": self.name,
+                    "repo_id": None if step is None else step.repo_id,
+                }
+            )
+
+    class FakeVerifier:
+        def verify(self, target):
+            return ResourceState(
+                key=target.target_id,
+                label=target.label,
+                status="ready",
+                path=str(target.resource_root),
+                missing_paths=[],
+            )
+
+    result = download_target_bundle(
+        target=target,
+        emit=events.append,
+        provider_adapters={
+            "provider-a": RecordingProvider("provider-a"),
+            "provider-b": RecordingProvider("provider-b"),
+        },
+        verifiers={"fake-verifier": FakeVerifier()},
+    )
+
+    assert provider_calls == [
+        {"provider": "provider-a", "repo_id": "bundle/step-a"},
+        {"provider": "provider-b", "repo_id": "bundle/step-b"},
+    ]
+    assert [event["event"] for event in events] == [
+        "download.started",
+        "download.progress",
+        "download.progress",
+        "download.verifying",
+        "download.completed",
+    ]
+    assert result.status == "ready"

@@ -66,6 +66,7 @@ class CliEnvelope(RuntimeBaseModel):
 
 
 class DownloadStep(RuntimeBaseModel):
+    provider: str | None = None
     repo_id: str
     local_dir: Path
     allow_file_pattern: list[str] = Field(default_factory=list)
@@ -75,6 +76,7 @@ class DownloadTargetSpec(RuntimeBaseModel):
     target_id: str
     label: str
     provider: str
+    verifier: str = "paths"
     repo_id: str
     allow_file_pattern: list[str]
     local_dir: Path
