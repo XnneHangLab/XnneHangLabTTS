@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import os
+import sys
 from importlib import import_module
 from pathlib import Path
 
@@ -8,8 +10,29 @@ import numpy as np
 import soundfile as sf
 
 
+def _ensure_lab_on_path() -> None:
+    """Add workspace_root/src to sys.path so `lab` is importable.
+
+    The webui runs in the XnneHangLabTTS venv which does not have the
+    XnneHangLab `lab` package installed.  The Rust spawner already sets
+    XH_VOICE_WORKSPACE_ROOT to the workspace root (the XnneHangLab
+    directory), so workspace_root/src contains the `lab` package.
+    """
+    workspace = os.environ.get("XH_VOICE_WORKSPACE_ROOT", "")
+    if not workspace:
+        return
+    candidate = Path(workspace) / "src"
+    if candidate.is_dir() and str(candidate) not in sys.path:
+        sys.path.insert(0, str(candidate))
+        print(f"INFO: added {candidate} to sys.path for lab package", flush=True)
+
+
 def _get_logic():
-    return import_module("lab.api.logic.genie_tts")
+    try:
+        return import_module("lab.api.logic.genie_tts")
+    except ModuleNotFoundError:
+        _ensure_lab_on_path()
+        return import_module("lab.api.logic.genie_tts")
 
 
 def _wav_bytes_to_audio(wav_bytes: bytes) -> tuple[int, np.ndarray]:
@@ -21,7 +44,8 @@ def _build_genie_tts_tab(gr):
     def list_characters() -> list[str]:
         try:
             return _get_logic().list_genie_tts_characters()
-        except Exception:
+        except Exception as exc:
+            print(f"ERROR: list_genie_tts_characters failed: {exc}", flush=True)
             return []
 
     def refresh_character_list():
@@ -37,6 +61,7 @@ def _build_genie_tts_tab(gr):
                 return f"✅ 已加载: {loaded_char}"
             return "⚠️ 未加载"
         except Exception as exc:
+            print(f"ERROR: get_genie_tts_status failed: {exc}", flush=True)
             return f"❌ {exc}"
 
     def load_model(character_name: str | None):
@@ -50,6 +75,7 @@ def _build_genie_tts_tab(gr):
             status = logic.get_genie_tts_status()
             yield f"✅ 已加载: {status.get('loaded_character')}" if status.get("loaded") else "❌ 加载失败（状态异常）"
         except Exception as exc:
+            print(f"ERROR: load_genie_tts_model_by_name({character_name!r}) failed: {exc}", flush=True)
             yield f"❌ 加载失败: {exc}"
 
     async def synthesize(
@@ -61,16 +87,22 @@ def _build_genie_tts_tab(gr):
         if not text:
             raise gr.Error("合成文本不能为空")
 
-        logic = _get_logic()
-        if not logic.get_genie_tts_status().get("loaded"):
-            raise gr.Error("模型尚未加载，请先选择角色并点击「加载模型」")
+        try:
+            logic = _get_logic()
+            if not logic.get_genie_tts_status().get("loaded"):
+                raise gr.Error("模型尚未加载，请先选择角色并点击「加载模型」")
 
-        wav_bytes = await logic.synthesize_once(
-            text=text,
-            ref_audio=Path(ref_audio_path) if ref_audio_path else None,
-            ref_text=(ref_text or "").strip() or None,
-        )
-        return _wav_bytes_to_audio(wav_bytes)
+            wav_bytes = await logic.synthesize_once(
+                text=text,
+                ref_audio=Path(ref_audio_path) if ref_audio_path else None,
+                ref_text=(ref_text or "").strip() or None,
+            )
+            return _wav_bytes_to_audio(wav_bytes)
+        except gr.Error:
+            raise
+        except Exception as exc:
+            print(f"ERROR: synthesize failed: {exc}", flush=True)
+            raise gr.Error(str(exc)) from exc
 
     initial_choices = list_characters()
     initial_value = initial_choices[0] if initial_choices else None
