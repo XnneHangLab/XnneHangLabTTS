@@ -24,99 +24,103 @@ _RE_TQDM_ANY = re.compile(r"\d+%\|")
 
 
 class _TqdmCapture:
-    """Context manager: redirect sys.stdout and sys.stderr to a pipe, parse
-    modelscope tqdm lines into structured ``download.file_progress`` emit events.
+    """Context manager: redirect OS file descriptors 1 (stdout) and 2 (stderr)
+    to a pipe so that ALL output — including C-level tqdm writes that bypass
+    Python's ``sys.stdout`` / ``sys.stderr`` — is captured.
 
-    The Tauri sidecar IPC also uses stdout — emit() writes single-line JSON
-    objects there.  We distinguish the two by their first non-whitespace byte:
-    JSON events start with ``{`` and are passed straight through to the original
-    stdout so the Tauri backend receives them unchanged.  Everything else
-    (tqdm bars, plain log text) is captured in the pipe.
+    Python-level ``sys.stdout`` is re-pointed to the saved Tauri IPC file
+    descriptor so that ``emit_event()`` (which uses ``print()``) bypasses the
+    pipe and reaches the Tauri backend directly.
 
-    ``write()`` appends ``\\n`` when the payload has none so the reader processes
-    each ``\\r``-prefixed tqdm line immediately instead of buffering until the
-    next write arrives.
+    The reader thread parses captured lines:
 
-    Non-tqdm lines that reach the pipe are forwarded to the original stderr so
-    they remain visible in the sidecar log.
+    * ``{``-prefixed → forwarded to Tauri IPC fd (safety net)
+    * ``Downloading [...]`` tqdm → structured ``download.file_progress`` events
+    * Other ``N%|`` tqdm bars → silently dropped
+    * Everything else → forwarded to Tauri stderr fd
     """
 
     def __init__(self, emit: EmitEvent, target_id: str) -> None:
         self._emit = emit
         self._target_id = target_id
         self._last_percent: dict[str, int] = {}
-        # Initialised here as a safe fallback; updated again in __enter__.
+        self._saved_fd1: int | None = None
+        self._saved_fd2: int | None = None
         self._orig_stdout = sys.stdout
         self._orig_stderr = sys.stderr
         r, w = os.pipe()
         self._r = r
-        self._w: int | None = w
+        self._w = w
         self._thread = threading.Thread(target=self._reader, daemon=True)
-        self._thread.start()
 
-    # ── fake file interface ────────────────────────────────────────────────────
-
-    def write(self, data: str) -> int:
-        # IPC events are single-line JSON written by emit() to stdout.
-        # Detect by leading '{' and pass through so Tauri receives them.
-        if data.lstrip().startswith("{"):
-            try:
-                self._orig_stdout.write(data)
-                self._orig_stdout.flush()
-            except Exception:
-                pass
-            return len(data)
-        # All other output (tqdm bars, plain log lines) goes into the pipe.
-        if self._w is not None:
-            try:
-                encoded = data.encode("utf-8", errors="replace")
-                # Append \n so the reader processes this line immediately.
-                # tqdm uses \r to overwrite; without a newline the reader
-                # buffers the text until the next write, making progress
-                # appear one step late and losing the final update.
-                if encoded and not encoded.endswith(b"\n"):
-                    encoded += b"\n"
-                os.write(self._w, encoded)
-            except OSError:
-                pass
-        return len(data)
-
-    def flush(self) -> None:
-        try:
-            self._orig_stdout.flush()
-        except Exception:
-            pass
-
-    def isatty(self) -> bool:
-        return False
-
-    # ── context manager ────────────────────────────────────────────────────────
+    # ── context manager ────────────────────────────────────────────────
 
     def __enter__(self) -> "_TqdmCapture":
         self._orig_stdout = sys.stdout
         self._orig_stderr = sys.stderr
-        sys.stdout = self  # type: ignore[assignment]
-        sys.stderr = self  # type: ignore[assignment]
+        # Save Tauri's original file descriptors
+        self._saved_fd1 = os.dup(1)
+        self._saved_fd2 = os.dup(2)
+        # Redirect OS-level fd 1 & 2 → capture pipe
+        os.dup2(self._w, 1)
+        os.dup2(self._w, 2)
+        # Re-point Python sys.stdout/stderr → saved Tauri fds
+        # so emit_event() (print → sys.stdout) reaches Tauri IPC directly
+        sys.stdout = open(self._saved_fd1, "w", closefd=False)
+        sys.stderr = open(self._saved_fd2, "w", closefd=False)
+        # Start reader now that fds are redirected
+        self._thread.start()
         return self
 
     def __exit__(self, *_) -> None:
+        # Flush any buffered Python output
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
+        try:
+            sys.stderr.flush()
+        except Exception:
+            pass
+        # Restore OS-level fds (closes their pipe-write-end copies)
+        if self._saved_fd1 is not None:
+            os.dup2(self._saved_fd1, 1)
+        if self._saved_fd2 is not None:
+            os.dup2(self._saved_fd2, 2)
+        # Close original pipe write end → reader gets EOF
+        try:
+            os.close(self._w)
+        except OSError:
+            pass
+        # Wait for reader thread to drain
+        self._thread.join(timeout=5)
+        # Reader is done — safe to close saved fds
+        if self._saved_fd1 is not None:
+            os.close(self._saved_fd1)
+            self._saved_fd1 = None
+        if self._saved_fd2 is not None:
+            os.close(self._saved_fd2)
+            self._saved_fd2 = None
+        # Close temporary Python wrappers and restore originals
+        tmp_out, tmp_err = sys.stdout, sys.stderr
         sys.stdout = self._orig_stdout
         sys.stderr = self._orig_stderr
-        if self._w is not None:
-            try:
-                os.close(self._w)
-            except OSError:
-                pass
-            self._w = None
-        self._thread.join(timeout=5)
+        try:
+            tmp_out.close()
+        except Exception:
+            pass
+        try:
+            tmp_err.close()
+        except Exception:
+            pass
 
-    # ── reader thread ──────────────────────────────────────────────────────────
+    # ── reader thread ──────────────────────────────────────────────────
 
     def _reader(self) -> None:
         buf = ""
         while True:
             try:
-                chunk = os.read(self._r, 512)
+                chunk = os.read(self._r, 4096)
             except OSError:
                 break
             if not chunk:
@@ -134,35 +138,44 @@ class _TqdmCapture:
             pass
 
     def _handle(self, line: str) -> None:
+        if not line:
+            return
+        # Safety net: JSON IPC that ended up in the pipe
+        if line.lstrip().startswith("{"):
+            try:
+                if self._saved_fd1 is not None:
+                    os.write(self._saved_fd1, (line + "\n").encode())
+            except OSError:
+                pass
+            return
+        # Download tqdm → structured progress event
         m = _RE_TQDM_DOWNLOADING.search(line)
-        if not m:
-            # Silently drop any other tqdm bar (e.g. "Processing 25 items: 32%|...")
-            # so it doesn't appear as garbled text in the sidecar log.
-            if _RE_TQDM_ANY.search(line):
+        if m:
+            desc = m.group(1)
+            percent = int(m.group(2))
+            if self._last_percent.get(desc) == percent:
                 return
-            # Forward genuine non-tqdm output (warnings, errors) to stderr.
-            if line:
-                try:
-                    self._orig_stderr.write(line + "\n")
-                    self._orig_stderr.flush()
-                except Exception:
-                    pass
+            self._last_percent[desc] = percent
+            event: dict = {
+                "event": "download.file_progress",
+                "target": self._target_id,
+                "desc": desc,
+                "percent": percent,
+            }
+            if m.group(3) and m.group(4):
+                event["downloaded"] = m.group(3)
+                event["total"] = m.group(4)
+            self._emit(event)
             return
-        desc = m.group(1)
-        percent = int(m.group(2))
-        if self._last_percent.get(desc) == percent:
+        # Drop any other tqdm bar silently
+        if _RE_TQDM_ANY.search(line):
             return
-        self._last_percent[desc] = percent
-        event: dict = {
-            "event": "download.file_progress",
-            "target": self._target_id,
-            "desc": desc,
-            "percent": percent,
-        }
-        if m.group(3) and m.group(4):
-            event["downloaded"] = m.group(3)
-            event["total"] = m.group(4)
-        self._emit(event)
+        # Forward genuine output to Tauri stderr
+        try:
+            if self._saved_fd2 is not None:
+                os.write(self._saved_fd2, (line + "\n").encode())
+        except OSError:
+            pass
 
 
 def _make_modelscope_downloader(emit: EmitEvent, target_id: str) -> SnapshotDownload:
