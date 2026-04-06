@@ -13,8 +13,8 @@ _use variant:
 [windows]
 _use variant:
     Copy-Item -Force torch-variants/{{variant}}.toml uv.toml
-    if (Test-Path .venv) { Remove-Item -Recurse -Force .venv }
-    if (Test-Path uv.lock) { Remove-Item -Force uv.lock }
+    if (Test-Path .venv) { Remove-Item -Recurse -Force .venv -ErrorAction SilentlyContinue; if (Test-Path .venv) { Write-Error "无法删除 .venv：请关闭占用该目录的程序（VS Code、Python 进程、终端等）后重试"; exit 1 } }
+    if (Test-Path uv.lock) { Remove-Item -Force uv.lock -ErrorAction SilentlyContinue }
 
 # 无独显 / 纯测试
 use-cpu: (_use "cpu")
