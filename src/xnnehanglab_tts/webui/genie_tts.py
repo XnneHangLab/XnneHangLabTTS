@@ -106,17 +106,32 @@ def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> N
     import time
 
     demo = _build_demo()
-    threading.Thread(
-        target=demo.launch,
-        kwargs={"server_name": host, "server_port": port, "share": share},
-        daemon=False,
-    ).start()
-    # Keep the main thread alive.  When the launch thread dies (e.g. due to
-    # Gradio's post-launch network check failing on proxied machines), Python's
-    # threading.excepthook prints the traceback to stderr automatically — no
-    # interception needed.  The Gradio server threads continue to serve.
+
+    # Gradio 5 bug: blocks.py calls httpx.get() for a version-check with no
+    # surrounding try/except, so a proxy-related ReadError propagates uncaught
+    # out of launch().  Suppress httpx.HTTPError from this thread only; every
+    # other exception class still goes through the original excepthook.
+    _orig_excepthook = threading.excepthook
+
+    def _excepthook(args: threading.ExceptHookArgs) -> None:
+        try:
+            import httpx
+            if isinstance(args.exc_value, httpx.HTTPError):
+                return
+        except ImportError:
+            pass
+        _orig_excepthook(args)
+
+    threading.excepthook = _excepthook
     try:
+        threading.Thread(
+            target=demo.launch,
+            kwargs={"server_name": host, "server_port": port, "share": share},
+            daemon=False,
+        ).start()
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
         pass
+    finally:
+        threading.excepthook = _orig_excepthook
