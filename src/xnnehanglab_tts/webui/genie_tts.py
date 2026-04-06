@@ -20,14 +20,15 @@ def _wav_bytes_to_audio(wav_bytes: bytes) -> tuple[int, np.ndarray]:
 def _build_demo():
     import gradio as gr
 
-    def load_model() -> str:
+    def load_model():
+        yield "⏳ 正在加载模型，请稍候…"
         try:
             logic = _get_logic()
             logic.load_genie_tts_model()
             status = logic.get_genie_tts_status()
-            return "✅ 模型已加载" if status.get("loaded") else "❌ 模型加载失败"
+            yield "✅ 模型已加载" if status.get("loaded") else "❌ 模型加载失败（状态异常）"
         except Exception as exc:
-            return f"❌ {exc}"
+            yield f"❌ 加载失败: {exc}"
 
     def refresh_status() -> str:
         try:
@@ -62,7 +63,7 @@ def _build_demo():
         with gr.Row():
             status_box = gr.Textbox(
                 label="模型状态",
-                value=refresh_status,
+                value="正在检查…",
                 interactive=False,
                 scale=4,
             )
@@ -97,6 +98,8 @@ def _build_demo():
             inputs=[text_input, ref_audio_input, ref_text_input],
             outputs=audio_output,
         )
+        # Non-blocking: page renders first, then status check fills in.
+        demo.load(fn=refresh_status, outputs=status_box)
 
     return demo
 
