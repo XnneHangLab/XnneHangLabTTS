@@ -22,12 +22,12 @@ def resolve_runtime_paths(
     cache_root: Path,
     logs_root: Path,
 ) -> RuntimePaths:
-    genie_base_root = models_root / "genie" / "base"
+    genie_base_root = models_root / "GenieData"
     return RuntimePaths(
         workspace_root=workspace_root,
         models_root=models_root,
         genie_base_root=genie_base_root,
-        genie_data_dir=genie_base_root / "GenieData",
+        genie_data_dir=genie_base_root,
         genie_characters_root=models_root / "genie" / "characters",
         gsv_lite_root=models_root / "GSVLiteData",
         cache_root=cache_root,
