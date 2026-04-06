@@ -10,6 +10,8 @@ class RuntimePaths:
     genie_data_dir: Path
     genie_characters_root: Path
     gsv_lite_root: Path
+    qwen_tts_0_6b_root: Path
+    qwen_tts_1_7b_root: Path
     cache_root: Path
     logs_root: Path
     download_logs_root: Path
@@ -29,6 +31,8 @@ def resolve_runtime_paths(
         genie_data_dir=genie_base_root,
         genie_characters_root=models_root / "genie" / "characters",
         gsv_lite_root=models_root / "GSVLiteData",
+        qwen_tts_0_6b_root=models_root / "Qwen3-TTS-0.6B",
+        qwen_tts_1_7b_root=models_root / "Qwen3-TTS-1.7B",
         cache_root=cache_root,
         logs_root=logs_root,
         download_logs_root=logs_root / "downloads",

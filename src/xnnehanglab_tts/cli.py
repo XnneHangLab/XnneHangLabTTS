@@ -9,7 +9,7 @@ from xnnehanglab_tts.runtime.models import CliEnvelope, RuntimeInspection, Verif
 from xnnehanglab_tts.runtime.targets import build_managed_paths, get_download_target
 from xnnehanglab_tts.runtime.verify import verify_target
 
-SUPPORTED_VERIFY_TARGETS = ("genie-base", "gsv-lite")
+SUPPORTED_VERIFY_TARGETS = ("genie-base", "gsv-lite", "qwen-tts-0.6b", "qwen-tts-1.7b")
 
 
 def _config_path_from_env() -> Path | None:
@@ -37,6 +37,8 @@ def build_runtime_inspection() -> RuntimeInspection:
     environment = inspect_environment()
     genie_resource = verify_target(get_download_target("genie-base", paths))
     gsv_lite_resource = verify_target(get_download_target("gsv-lite", paths))
+    qwen_tts_0_6b_resource = verify_target(get_download_target("qwen-tts-0.6b", paths))
+    qwen_tts_1_7b_resource = verify_target(get_download_target("qwen-tts-1.7b", paths))
     available_backends = (
         ["genie-tts"]
         if environment.mode == "cpu"
@@ -53,6 +55,8 @@ def build_runtime_inspection() -> RuntimeInspection:
         resources={
             "genie-base": genie_resource,
             "gsv-lite": gsv_lite_resource,
+            "qwen-tts-0.6b": qwen_tts_0_6b_resource,
+            "qwen-tts-1.7b": qwen_tts_1_7b_resource,
         },
         latest_message=latest_message,
     )

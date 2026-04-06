@@ -4,6 +4,9 @@ from .models import DownloadStep, DownloadTargetSpec, ManagedPath
 from .paths import RuntimePaths
 
 GENIE_BASE_REPO_ID = os.getenv("XH_GENIE_BASE_REPO_ID", "xnnehang/xnnehanglab-geniedata")
+QWEN_TTS_0_6B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
+QWEN_TTS_1_7B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+
 GENIE_BASE_REQUIRED_PATHS = [
     "speaker_encoder.onnx",
     "chinese-hubert-base/chinese-hubert-base.onnx",
@@ -28,6 +31,11 @@ ROBERTA_FILE_PATTERN = [
     "special_tokens_map.json",
     "tokenizer_config.json",
     "tokenizer.json",
+]
+
+QWEN_TTS_REQUIRED_PATHS = [
+    "model.safetensors",
+    "speech_tokenizer/model.safetensors",
 ]
 
 
@@ -86,6 +94,32 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
                     local_dir=root / "sv",
                 ),
             ],
+        )
+
+    if target_id == "qwen-tts-0.6b":
+        return DownloadTargetSpec(
+            target_id="qwen-tts-0.6b",
+            label="Qwen3-TTS 0.6B",
+            provider="modelscope",
+            repo_id=QWEN_TTS_0_6B_REPO_ID,
+            allow_file_pattern=[],
+            local_dir=paths.qwen_tts_0_6b_root,
+            resource_root=paths.qwen_tts_0_6b_root,
+            required_paths=QWEN_TTS_REQUIRED_PATHS,
+            required_file_paths=QWEN_TTS_REQUIRED_PATHS,
+        )
+
+    if target_id == "qwen-tts-1.7b":
+        return DownloadTargetSpec(
+            target_id="qwen-tts-1.7b",
+            label="Qwen3-TTS 1.7B",
+            provider="modelscope",
+            repo_id=QWEN_TTS_1_7B_REPO_ID,
+            allow_file_pattern=[],
+            local_dir=paths.qwen_tts_1_7b_root,
+            resource_root=paths.qwen_tts_1_7b_root,
+            required_paths=QWEN_TTS_REQUIRED_PATHS,
+            required_file_paths=QWEN_TTS_REQUIRED_PATHS,
         )
 
     raise KeyError(f"unsupported target: {target_id}")
