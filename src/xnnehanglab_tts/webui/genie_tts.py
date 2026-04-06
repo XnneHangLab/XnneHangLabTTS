@@ -13,7 +13,11 @@ from xnnehanglab_tts.webui import genie_runtime
 
 
 def _wav_bytes_to_audio(wav_bytes: bytes) -> tuple[int, np.ndarray]:
-    data, sample_rate = sf.read(io.BytesIO(wav_bytes), dtype="float32")
+    buffer = io.BytesIO(wav_bytes)
+    subtype = sf.info(buffer).subtype
+    buffer.seek(0)
+    dtype = "int16" if subtype == "PCM_16" else "float32"
+    data, sample_rate = sf.read(buffer, dtype=dtype)
     return sample_rate, np.asarray(data)
 
 
