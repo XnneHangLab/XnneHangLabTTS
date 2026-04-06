@@ -119,6 +119,27 @@
 - CPU / GPU 安装策略区分
 - 模型下载职责与运行仓库职责划清
 
+## 快速开始
+
+需要先安装 [uv](https://docs.astral.sh/uv/getting-started/installation/) 和 [just](https://just.systems/man/en/)。
+
+### 安装 torch
+
+运行前先用 `nvidia-smi` 确认驱动版本，然后选对应命令：
+
+| 情况 | 命令 |
+|---|---|
+| 无独显 / 只测试 | `just install-cpu` |
+| RTX 10/20/30 系，旧驱动 | `just install-gpu-cu118` |
+| RTX 20/30/40 系，新驱动（推荐） | `just install-gpu-cu124` |
+| RTX 50 系 (Blackwell) | `just install-gpu-cu128` |
+
+安装完成后验证：
+
+```
+just check-torch
+```
+
 ## 与 XnneHangLab 的关系
 
 如果你想使用完整项目，请前往主仓库：
