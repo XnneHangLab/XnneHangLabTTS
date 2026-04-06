@@ -70,6 +70,11 @@ def build_parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("target", choices=SUPPORTED_VERIFY_TARGETS)
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("target")
+    webui_parser = subparsers.add_parser("webui")
+    webui_parser.add_argument("--backend", default="genie-tts", choices=["genie-tts"])
+    webui_parser.add_argument("--host", default="0.0.0.0")
+    webui_parser.add_argument("--port", type=int, default=7860)
+    webui_parser.add_argument("--share", action="store_true")
     return parser
 
 
@@ -109,6 +114,11 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         emit_result(VerifyResult(resource=resource).model_dump(by_alias=True))
+        return 0
+
+    if args.command == "webui":
+        from xnnehanglab_tts.webui.genie_tts import launch as launch_webui
+        launch_webui(host=args.host, port=args.port, share=args.share)
         return 0
 
     parser.error(f"unsupported command: {args.command}")
