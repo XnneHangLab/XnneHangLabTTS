@@ -102,29 +102,21 @@ def _build_demo():
 
 
 def launch(*, host: str = "0.0.0.0", port: int = 7860, share: bool = False) -> None:
-    import sys
+    import threading
     import time
-    import traceback
 
+    demo = _build_demo()
+    threading.Thread(
+        target=demo.launch,
+        kwargs={"server_name": host, "server_port": port, "share": share},
+        daemon=False,
+    ).start()
+    # Keep the main thread alive.  When the launch thread dies (e.g. due to
+    # Gradio's post-launch network check failing on proxied machines), Python's
+    # threading.excepthook prints the traceback to stderr automatically — no
+    # interception needed.  The Gradio server threads continue to serve.
     try:
-        _build_demo().launch(server_name=host, server_port=port, share=share)
-    except Exception as exc:
-        try:
-            import httpx
-            is_network_exc = isinstance(exc, httpx.HTTPError)
-        except ImportError:
-            is_network_exc = False
-
-        if not is_network_exc:
-            raise
-
-        # Print the real traceback so it appears in the launcher console.
-        traceback.print_exc(file=sys.stderr)
-        sys.stderr.flush()
-        display_host = "127.0.0.1" if host == "0.0.0.0" else host
-        print(
-            f"[webui] 上方网络错误已忽略（代理拦截）；服务器持续运行中: http://{display_host}:{port}",
-            flush=True,
-        )
         while True:
-            time.sleep(3600)
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
