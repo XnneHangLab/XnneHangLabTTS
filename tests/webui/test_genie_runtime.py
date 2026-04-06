@@ -96,6 +96,32 @@ def test_patch_genie_resource_paths_updates_imported_modules(
     assert gsv_model_file.ROBERTA_MODEL == str(genie_data_dir / "RoBERTa" / "RoBERTa.onnx")
 
 
+def test_patch_genie_resource_paths_updates_fast_langdetect_cache_dir(
+    monkeypatch, tmp_path: Path
+):
+    from xnnehanglab_tts.webui import genie_runtime
+
+    genie_data_dir = (tmp_path / "models" / "GenieData").resolve()
+    detector_config = SimpleNamespace(cache_dir="/tmp/wrong-cache")
+    infer_module = SimpleNamespace(
+        CACHE_DIRECTORY="/tmp/wrong-cache",
+        DEFAULT_CACHE_DIR=Path("/tmp/wrong-cache"),
+        FASTTEXT_LARGE_MODEL_NAME="lid.176.bin",
+        _default_detector=SimpleNamespace(config=detector_config, _models={"lite": object(), "full": object()}),
+    )
+
+    monkeypatch.setitem(sys.modules, "fast_langdetect.infer", infer_module)
+
+    genie_runtime._patch_genie_resource_paths(genie_data_dir)
+
+    assert os.environ["FTLANG_CACHE"] == str(genie_data_dir)
+    assert infer_module.CACHE_DIRECTORY == str(genie_data_dir)
+    assert detector_config.cache_dir == str(genie_data_dir)
+    assert detector_config.custom_model_path == str(genie_data_dir / "lid.176.bin")
+    assert detector_config.model == "full"
+    assert infer_module._default_detector._models == {}
+
+
 def test_load_genie_tts_model_by_name_uses_local_runtime_model_dir(
     monkeypatch, tmp_path: Path
 ):

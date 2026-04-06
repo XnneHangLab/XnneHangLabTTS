@@ -59,6 +59,7 @@ def _load_runtime_paths():
 
 def _patch_genie_resource_paths(genie_data_dir: Path) -> None:
     base_dir = genie_data_dir.resolve()
+    fasttext_model_path = base_dir / "lid.176.bin"
     overrides = {
         "GENIE_DATA_DIR": str(base_dir),
         "English_G2P_DIR": str(base_dir / "G2P" / "EnglishG2P"),
@@ -66,6 +67,7 @@ def _patch_genie_resource_paths(genie_data_dir: Path) -> None:
         "HUBERT_MODEL_DIR": str(base_dir / "chinese-hubert-base"),
         "SV_MODEL": str(base_dir / "speaker_encoder.onnx"),
         "ROBERTA_MODEL_DIR": str(base_dir / "RoBERTa"),
+        "FTLANG_CACHE": str(base_dir),
     }
 
     os.environ.update(overrides)
@@ -90,6 +92,20 @@ def _patch_genie_resource_paths(genie_data_dir: Path) -> None:
             )
             setattr(gsv_model_file, "ROBERTA_MODEL", str(base_dir / "RoBERTa" / "RoBERTa.onnx"))
             setattr(gsv_model_file, "ROBERTA_TOKENIZER", str(base_dir / "RoBERTa" / "roberta_tokenizer"))
+
+    fast_langdetect_infer = sys.modules.get("fast_langdetect.infer")
+    if fast_langdetect_infer is not None:
+        setattr(fast_langdetect_infer, "CACHE_DIRECTORY", overrides["FTLANG_CACHE"])
+        default_detector = getattr(fast_langdetect_infer, "_default_detector", None)
+        detector_config = getattr(default_detector, "config", None)
+        if detector_config is not None:
+            setattr(detector_config, "cache_dir", overrides["FTLANG_CACHE"])
+            setattr(detector_config, "custom_model_path", str(fasttext_model_path))
+            setattr(detector_config, "model", "full")
+        if default_detector is not None:
+            model_cache = getattr(default_detector, "_models", None)
+            if isinstance(model_cache, dict):
+                model_cache.clear()
 
 
 def _load_genie_module(paths):
