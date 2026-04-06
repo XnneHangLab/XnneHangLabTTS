@@ -40,11 +40,10 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
     def fake_emit(payload):
         events.append(payload)
 
-    def fake_snapshot_download(model_id, cache_dir, local_dir, allow_file_pattern):
+    def fake_snapshot_download(model_id, local_dir, allow_file_pattern):
         calls.append(
             {
                 "model_id": model_id,
-                "cache_dir": cache_dir,
                 "local_dir": local_dir,
                 "allow_file_pattern": allow_file_pattern,
             }
@@ -78,7 +77,6 @@ def test_download_target_bundle_uses_modelscope_and_emits_stage_events(tmp_path:
     assert calls == [
         {
             "model_id": target.repo_id,
-            "cache_dir": str(target.cache_dir),
             "local_dir": str(target.local_dir),
             "allow_file_pattern": target.allow_file_pattern or None,
         }
@@ -134,7 +132,7 @@ def test_download_target_bundle_raises_with_missing_paths_when_verify_not_ready(
     def fake_emit(payload):
         events.append(payload)
 
-    def fake_snapshot_download(model_id, cache_dir, local_dir, allow_file_pattern):
+    def fake_snapshot_download(model_id, local_dir, allow_file_pattern):
         resource_root = Path(local_dir)
         resource_root.mkdir(parents=True, exist_ok=True)
         (resource_root / "speaker_encoder.onnx").write_text("ok", encoding="utf-8")
@@ -217,7 +215,6 @@ def test_download_target_bundle_selects_provider_and_verifier_from_target(tmp_pa
         repo_id="custom/source",
         allow_file_pattern=[],
         local_dir=tmp_path / "custom",
-        cache_dir=tmp_path / "cache",
         resource_root=tmp_path / "custom",
         required_paths=["ready.txt"],
     )
@@ -272,7 +269,6 @@ def test_download_target_bundle_uses_step_provider_override_and_target_fallback(
         repo_id="bundle/primary",
         allow_file_pattern=[],
         local_dir=tmp_path / "bundle",
-        cache_dir=tmp_path / "cache",
         resource_root=tmp_path / "bundle",
         required_paths=[],
         download_steps=[
