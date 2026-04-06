@@ -9,12 +9,14 @@ EmitEvent = Callable[[dict], None]
 
 def _modelscope_snapshot_download(**kwargs) -> str:
     import logging
+    import os
 
     from modelscope import snapshot_download
 
     # modelscope 的 tqdm 进度条用 \r 原地覆写，无法被日志系统干净捕获。
     # 前端进度完全依赖 emit_event 的结构化事件，此处压掉 modelscope 自身输出。
     logging.getLogger("modelscope").setLevel(logging.WARNING)
+    os.environ["TQDM_DISABLE"] = "1"
 
     return snapshot_download(**kwargs)
 
