@@ -20,11 +20,24 @@ GENIE_BASE_REQUIRED_PATHS = [
 GENIE_BASE_REQUIRED_FILE_PATHS = list(GENIE_BASE_REQUIRED_PATHS)
 GENIE_BASE_REQUIRED_DIR_PATHS: list[str] = []
 
-GSV_LITE_REQUIRED_DIR_PATHS = [
-    "chinese-hubert-base",
-    "chinese-roberta-wwm-ext-large",
-    "g2p",
-    "sv",
+GSV_LITE_REQUIRED_FILE_PATHS = [
+    # chinese-hubert-base
+    "chinese-hubert-base/pytorch_model.bin",
+    "chinese-hubert-base/config.json",
+    # chinese-roberta-wwm-ext-large
+    "chinese-roberta-wwm-ext-large/pytorch_model.bin",
+    "chinese-roberta-wwm-ext-large/config.json",
+    "chinese-roberta-wwm-ext-large/tokenizer.json",
+    # g2p — OpenJTalk binary dicts (Japanese)
+    "g2p/ja/open_jtalk_dic_utf_8-1.11/char.bin",
+    "g2p/ja/open_jtalk_dic_utf_8-1.11/matrix.bin",
+    # g2p — NLTK averaged perceptron tagger (English)
+    "g2p/en/nltk/taggers/averaged_perceptron_tagger_eng/averaged_perceptron_tagger_eng.weights.json",
+    "g2p/en/nltk/taggers/averaged_perceptron_tagger_eng/averaged_perceptron_tagger_eng.tagdict.json",
+    "g2p/en/nltk/taggers/averaged_perceptron_tagger_eng/averaged_perceptron_tagger_eng.classes.json",
+    # sv — speaker verification model
+    "sv/pretrained_eres2netv2w24s4ep4.ckpt",
+    "sv/configuration.json",
 ]
 ROBERTA_FILE_PATTERN = [
     "pytorch_model.bin",
@@ -88,8 +101,9 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
             allow_file_pattern=[],
             local_dir=root,
             resource_root=root,
-            required_paths=GSV_LITE_REQUIRED_DIR_PATHS,
-            required_dir_paths=GSV_LITE_REQUIRED_DIR_PATHS,
+            required_paths=GSV_LITE_REQUIRED_FILE_PATHS,
+            required_file_paths=GSV_LITE_REQUIRED_FILE_PATHS,
+            required_dir_paths=[],
             download_steps=[
                 DownloadStep(
                     repo_id="pengzhendong/chinese-hubert-base",

@@ -10,6 +10,47 @@ from .models import DownloadStep, DownloadTargetSpec
 EmitEvent = Callable[[dict], None]
 SnapshotDownload = Callable[..., str]
 
+
+class _IsattyFd:
+    """Write-only wrapper around a raw fd that lies isatty()=True.
+
+    Passed as sys.stderr inside _TqdmCapture so that tqdm stays in
+    dynamic/interactive mode and emits high-frequency \\r progress updates
+    instead of batching them until the final \\n flush.
+    Writes bypass Python's text-mode buffering via os.write() so each
+    tqdm flush reaches the pipe reader thread immediately.
+    """
+
+    def __init__(self, fd: int) -> None:
+        self._fd = fd
+
+    def write(self, text: str) -> int:
+        try:
+            os.write(self._fd, text.encode("utf-8", errors="replace"))
+        except OSError:
+            pass
+        return len(text)
+
+    def flush(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass  # fd lifetime is managed by _TqdmCapture
+
+    def isatty(self) -> bool:
+        return True
+
+    def fileno(self) -> int:
+        return self._fd
+
+    @property
+    def encoding(self) -> str:
+        return "utf-8"
+
+    @property
+    def errors(self) -> str:
+        return "replace"
+
 # Matches modelscope tqdm lines of the form:
 #   Downloading [some/file.bin]:  42%|████      | 75.0M/180M [00:30<00:40, 1.02MB/s]
 _RE_TQDM_DOWNLOADING = re.compile(
@@ -56,7 +97,7 @@ class _TqdmCapture:
         os.dup2(self._w, 1)
         os.dup2(self._w, 2)
         sys.stdout = open(self._saved_fd1, "w", buffering=1, closefd=False)
-        sys.stderr = open(2, "w", buffering=1, closefd=False)
+        sys.stderr = _IsattyFd(2)
         self._thread.start()
         return self
 
