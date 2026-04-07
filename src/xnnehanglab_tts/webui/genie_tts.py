@@ -28,13 +28,13 @@ def _build_genie_tts_tab(gr):
             print(f"ERROR: get_genie_tts_status failed: {exc}", flush=True)
             return f"加载状态失败: {exc}"
 
-    def load_model(character_name: str | None):
+    def load_model(character_name: str | None, onnx_threads: int):
         if not character_name:
             yield "请先选择角色模型"
             return
         yield f"正在加载 {character_name}，请稍候…"
         try:
-            genie_runtime.load_genie_tts_model_by_name(character_name)
+            genie_runtime.load_genie_tts_model_by_name(character_name, onnx_intra_threads=int(onnx_threads))
             status = genie_runtime.get_genie_tts_status()
             if status.get("loaded"):
                 yield f"已加载: {status.get('loaded_character')}"
@@ -93,6 +93,16 @@ def _build_genie_tts_tab(gr):
             refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100)
 
         with gr.Row():
+            onnx_threads_slider = gr.Slider(
+                label="ONNX 推理线程数",
+                minimum=1,
+                maximum=16,
+                value=4,
+                step=1,
+                info="限制 T2S 解码器使用的 CPU 线程数，可防止 Windows 热降频。加载模型时生效。",
+            )
+
+        with gr.Row():
             with gr.Column():
                 text_input = gr.Textbox(
                     label="合成文本",
@@ -112,7 +122,7 @@ def _build_genie_tts_tab(gr):
             with gr.Column():
                 audio_output = gr.Audio(label="合成结果", interactive=False)
 
-        load_btn.click(fn=load_model, inputs=[character_dropdown], outputs=status_box)
+        load_btn.click(fn=load_model, inputs=[character_dropdown, onnx_threads_slider], outputs=status_box)
         refresh_status_btn.click(fn=refresh_status, outputs=status_box)
         refresh_chars_btn.click(fn=refresh_character_list, outputs=character_dropdown)
         synth_btn.click(
