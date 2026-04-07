@@ -234,6 +234,16 @@ def load_genie_tts_model_by_name(character_name: str) -> None:
     model_dir = _resolve_character_model_dir(character_name, paths)
     genie = _load_genie_module(paths)
 
+    intra_threads = os.getenv("XH_ONNX_INTRA_THREADS", "")
+    if intra_threads.strip().isdigit() and int(intra_threads) > 0:
+        print(f"INFO: ONNX intra_op_num_threads limited to {intra_threads} (XH_ONNX_INTRA_THREADS)", flush=True)
+    else:
+        print(
+            f"INFO: XH_ONNX_INTRA_THREADS not set — ONNX will use all CPU cores. "
+            f"Set XH_ONNX_INTRA_THREADS=4 to cap threads and reduce thermal throttling.",
+            flush=True,
+        )
+
     if _STATE.loaded_character and _STATE.loaded_character != character_name:
         try:
             genie.unload_character(_STATE.loaded_character)
