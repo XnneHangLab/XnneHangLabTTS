@@ -296,6 +296,7 @@ def synthesize_once(
             split_sentence=True,
             save_path=str(output_path),
         )
+        _instrument_langdetect_timing()  # re-try after lazy import
         synth_elapsed = time.perf_counter() - synth_started_at
         if not output_path.is_file() or output_path.stat().st_size <= 44:
             output_path.unlink(missing_ok=True)
