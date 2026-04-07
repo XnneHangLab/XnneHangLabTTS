@@ -8,6 +8,7 @@ FAST_LANGDETECT_LID176_REPO_ID = "xnnehang/fast-langdetect-lid176"
 QWEN_TTS_0_6B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 QWEN_TTS_1_7B_REPO_ID = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 LUMING_GENIE_TTS_REPO_ID = "xnnehang/luming-genie-tts-v2-pro-plus"
+LUMING_GSV_LITE_REPO_ID = "xnnehang/luming-gpt-sovits-v2-pro-plus"
 
 GENIE_BASE_REQUIRED_PATHS = [
     "speaker_encoder.onnx",
@@ -139,12 +140,25 @@ def get_download_target(target_id: str, paths: RuntimePaths) -> DownloadTargetSp
     if target_id == "luming-genie-tts-v2-pro-plus":
         return DownloadTargetSpec(
             target_id="luming-genie-tts-v2-pro-plus",
-            label="路鸣 Genie-TTS v2 Pro+",
+            label="鹿鸣 Genie-TTS v2 Pro+",
             provider="modelscope",
             repo_id=LUMING_GENIE_TTS_REPO_ID,
             allow_file_pattern=[],
             local_dir=paths.genie_tts_luming_v2_pro_plus_root,
             resource_root=paths.genie_tts_luming_v2_pro_plus_root,
+            required_paths=[],
+            required_file_paths=[],
+        )
+
+    if target_id == "luming-gsv-lite-v2-pro-plus":
+        return DownloadTargetSpec(
+            target_id="luming-gsv-lite-v2-pro-plus",
+            label="鹿鸣 GSV-Lite v2 Pro+",
+            provider="modelscope",
+            repo_id=LUMING_GSV_LITE_REPO_ID,
+            allow_file_pattern=[],
+            local_dir=paths.gsv_tts_lite_luming_v2_pro_plus_root,
+            resource_root=paths.gsv_tts_lite_luming_v2_pro_plus_root,
             required_paths=[],
             required_file_paths=[],
         )

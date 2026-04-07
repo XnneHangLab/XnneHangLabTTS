@@ -12,6 +12,7 @@ class RuntimePaths:
     genie_tts_root: Path
     genie_tts_luming_v2_pro_plus_root: Path
     gsv_lite_root: Path
+    gsv_tts_lite_luming_v2_pro_plus_root: Path
     qwen_tts_0_6b_root: Path
     qwen_tts_1_7b_root: Path
     cache_root: Path
@@ -36,6 +37,7 @@ def resolve_runtime_paths(
         genie_tts_root=genie_tts_root,
         genie_tts_luming_v2_pro_plus_root=genie_tts_root / "luming-v2-pro-plus",
         gsv_lite_root=models_root / "GSVLiteData",
+        gsv_tts_lite_luming_v2_pro_plus_root=models_root / "gsv-tts-lite" / "luming-v2-pro-plus",
         qwen_tts_0_6b_root=models_root / "Qwen3-TTS-0.6B",
         qwen_tts_1_7b_root=models_root / "Qwen3-TTS-1.7B",
         cache_root=cache_root,
