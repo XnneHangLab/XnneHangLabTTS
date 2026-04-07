@@ -1,7 +1,6 @@
 import os
 import re
 import sys
-import threading
 from collections.abc import Callable
 from typing import Protocol
 
@@ -10,47 +9,6 @@ from .models import DownloadStep, DownloadTargetSpec
 EmitEvent = Callable[[dict], None]
 SnapshotDownload = Callable[..., str]
 
-
-class _IsattyFd:
-    """Write-only wrapper around a raw fd that lies isatty()=True.
-
-    Passed as sys.stderr inside _TqdmCapture so that tqdm stays in
-    dynamic/interactive mode and emits high-frequency \\r progress updates
-    instead of batching them until the final \\n flush.
-    Writes bypass Python's text-mode buffering via os.write() so each
-    tqdm flush reaches the pipe reader thread immediately.
-    """
-
-    def __init__(self, fd: int) -> None:
-        self._fd = fd
-
-    def write(self, text: str) -> int:
-        try:
-            os.write(self._fd, text.encode("utf-8", errors="replace"))
-        except OSError:
-            pass
-        return len(text)
-
-    def flush(self) -> None:
-        pass
-
-    def close(self) -> None:
-        pass  # fd lifetime is managed by _TqdmCapture
-
-    def isatty(self) -> bool:
-        return True
-
-    def fileno(self) -> int:
-        return self._fd
-
-    @property
-    def encoding(self) -> str:
-        return "utf-8"
-
-    @property
-    def errors(self) -> str:
-        return "replace"
-
 # Matches modelscope tqdm lines of the form:
 #   Downloading [some/file.bin]:  42%|████      | 75.0M/180M [00:30<00:40, 1.02MB/s]
 _RE_TQDM_DOWNLOADING = re.compile(
@@ -58,143 +16,81 @@ _RE_TQDM_DOWNLOADING = re.compile(
     r"(?:[^\|]*\|[^\|]*\|\s*([\d.]+\w+)/([\d.]+\w+))?"
 )
 
-# Matches any tqdm-like bar (e.g. "Processing 25 items: 32%|###...")
-# Used to silently drop non-download tqdm output instead of forwarding it to
-# stderr where it would appear as garbled text.
-_RE_TQDM_ANY = re.compile(r"\d+%\|")
-
-# Matches informational ModelScope logger lines that would otherwise flood the
-# launcher console during downloads.
-_RE_MODELSCOPE_LOG_NOISE = re.compile(r"\bmodelscope\b\s*-\s*(?:INFO|DEBUG)\s*-")
-
 
 class DownloadProviderAdapter(Protocol):
     def download(self, *, target: DownloadTargetSpec, step: DownloadStep | None = None) -> str | None:
         ...
 
 
-class _TqdmCapture:
-    """Capture modelscope tqdm/log output and re-emit structured file progress."""
+class _TqdmSpy:
+    """Wrap sys.stderr: forward everything to the real stderr so the console
+    sees all output, and parse tqdm download lines to emit structured
+    file-progress events.  No fd-level redirection — no pipes, no threads.
+    """
 
-    def __init__(self, emit: EmitEvent, target_id: str) -> None:
+    def __init__(self, emit: EmitEvent, target_id: str, real_stderr) -> None:
         self._emit = emit
         self._target_id = target_id
+        self._real = real_stderr
         self._last_percent: dict[str, int] = {}
-        self._saved_fd1: int | None = None
-        self._saved_fd2: int | None = None
-        self._orig_stdout = sys.stdout
-        self._orig_stderr = sys.stderr
-        r, w = os.pipe()
-        self._r = r
-        self._w = w
-        self._thread = threading.Thread(target=self._reader, daemon=True)
+        self._buf = ""
 
-    def __enter__(self) -> "_TqdmCapture":
-        self._orig_stdout = sys.stdout
-        self._orig_stderr = sys.stderr
-        self._saved_fd1 = os.dup(1)
-        self._saved_fd2 = os.dup(2)
-        os.dup2(self._w, 1)
-        os.dup2(self._w, 2)
-        sys.stdout = open(self._saved_fd1, "w", buffering=1, closefd=False)
-        sys.stderr = _IsattyFd(2)
-        self._thread.start()
-        return self
+    # ---- file-like interface ------------------------------------------------
 
-    def __exit__(self, *_) -> None:
+    def write(self, text: str) -> int:
+        self._real.write(text)
         try:
-            sys.stdout.flush()
+            self._real.flush()
         except Exception:
             pass
+        self._buf += text
+        parts = re.split(r"[\r\n]", self._buf)
+        self._buf = parts[-1]
+        for line in parts[:-1]:
+            self._parse(line.strip())
+        return len(text)
+
+    def flush(self) -> None:
         try:
-            sys.stderr.flush()
-        except Exception:
-            pass
-        if self._saved_fd1 is not None:
-            os.dup2(self._saved_fd1, 1)
-        if self._saved_fd2 is not None:
-            os.dup2(self._saved_fd2, 2)
-        try:
-            os.close(self._w)
-        except OSError:
-            pass
-        self._thread.join(timeout=5)
-        if self._saved_fd1 is not None:
-            os.close(self._saved_fd1)
-            self._saved_fd1 = None
-        if self._saved_fd2 is not None:
-            os.close(self._saved_fd2)
-            self._saved_fd2 = None
-        tmp_out, tmp_err = sys.stdout, sys.stderr
-        sys.stdout = self._orig_stdout
-        sys.stderr = self._orig_stderr
-        try:
-            tmp_out.close()
-        except Exception:
-            pass
-        try:
-            tmp_err.close()
+            self._real.flush()
         except Exception:
             pass
 
-    def _reader(self) -> None:
-        buf = ""
-        while True:
-            try:
-                chunk = os.read(self._r, 4096)
-            except OSError:
-                break
-            if not chunk:
-                break
-            buf += chunk.decode("utf-8", errors="replace")
-            parts = re.split(r"[\r\n]", buf)
-            buf = parts[-1]
-            for line in parts[:-1]:
-                self._handle(line.strip())
-        if buf.strip():
-            self._handle(buf.strip())
-        try:
-            os.close(self._r)
-        except OSError:
-            pass
+    def isatty(self) -> bool:
+        # Lie to tqdm so it stays in dynamic/interactive mode (uses \r).
+        return True
 
-    def _handle(self, line: str) -> None:
+    @property
+    def encoding(self) -> str:
+        return getattr(self._real, "encoding", "utf-8")
+
+    @property
+    def errors(self) -> str:
+        return getattr(self._real, "errors", "replace")
+
+    # ---- tqdm line parser ---------------------------------------------------
+
+    def _parse(self, line: str) -> None:
         if not line:
             return
-        if line.lstrip().startswith("{"):
-            try:
-                if self._saved_fd1 is not None:
-                    os.write(self._saved_fd1, (line + "\n").encode())
-            except OSError:
-                pass
-            return
         m = _RE_TQDM_DOWNLOADING.search(line)
-        if m:
-            desc = m.group(1)
-            percent = int(m.group(2))
-            if self._last_percent.get(desc) == percent:
-                return
-            self._last_percent[desc] = percent
-            event: dict = {
-                "event": "download.file_progress",
-                "target": self._target_id,
-                "desc": desc,
-                "percent": percent,
-            }
-            if m.group(3) and m.group(4):
-                event["downloaded"] = m.group(3)
-                event["total"] = m.group(4)
-            self._emit(event)
+        if not m:
             return
-        if _RE_TQDM_ANY.search(line):
+        desc = m.group(1)
+        percent = int(m.group(2))
+        if self._last_percent.get(desc) == percent:
             return
-        if _RE_MODELSCOPE_LOG_NOISE.search(line):
-            return
-        try:
-            if self._saved_fd2 is not None:
-                os.write(self._saved_fd2, (line + "\n").encode())
-        except OSError:
-            pass
+        self._last_percent[desc] = percent
+        event: dict = {
+            "event": "download.file_progress",
+            "target": self._target_id,
+            "desc": desc,
+            "percent": percent,
+        }
+        if m.group(3) and m.group(4):
+            event["downloaded"] = m.group(3)
+            event["total"] = m.group(4)
+        self._emit(event)
 
 
 class ModelscopeDownloadAdapter:
@@ -224,8 +120,13 @@ class ModelscopeDownloadAdapter:
             logger.setLevel(logging.WARNING)
             for handler in logger.handlers:
                 handler.setLevel(logging.WARNING)
-            with _TqdmCapture(self._emit, self._target_id):
+
+            orig_stderr = sys.stderr
+            sys.stderr = _TqdmSpy(self._emit, self._target_id, orig_stderr)
+            try:
                 return snapshot_download(**kwargs)
+            finally:
+                sys.stderr = orig_stderr
 
         return _downloader
 
@@ -243,4 +144,3 @@ class ModelscopeDownloadAdapter:
             "local_dir": str(local_dir),
             "allow_file_pattern": allow_file_pattern or None,
         }
-
