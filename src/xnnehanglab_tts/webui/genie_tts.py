@@ -6,6 +6,7 @@ import traceback
 from pathlib import Path
 
 from xnnehanglab_tts.webui import genie_runtime
+from xnnehanglab_tts.webui.gsv_lite_tts import build_gsv_lite_tab
 
 
 def _build_genie_tts_tab(gr):
@@ -142,8 +143,7 @@ def _build_demo():
 
         _build_genie_tts_tab(gr)
 
-        with gr.Tab("GSV-Lite"):
-            gr.Markdown("## GSV-Lite\n\nGSV-Lite 功能开发中，敬请期待。")
+        build_gsv_lite_tab(gr)
 
         with gr.Tab("Faster-Qwen-TTS"):
             gr.Markdown("## Faster-Qwen-TTS\n\nFaster-Qwen-TTS 功能开发中，敬请期待。")
