@@ -185,8 +185,26 @@ def _download_compound(
                 "progressUnit": "stage",
             }
         )
+        emit(
+            {
+                "event": "download.file_progress",
+                "target": target.target_id,
+                "status": "downloading",
+                "desc": repo_name,
+                "percent": 0,
+            }
+        )
         adapter = _select_provider_adapter(target, providers, step)
         adapter.download(target=target, step=step)
+        emit(
+            {
+                "event": "download.file_progress",
+                "target": target.target_id,
+                "status": "downloading",
+                "desc": repo_name,
+                "percent": 100,
+            }
+        )
 
     return _verify_and_complete(
         target,
