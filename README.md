@@ -119,6 +119,41 @@
 - CPU / GPU 安装策略区分
 - 模型下载职责与运行仓库职责划清
 
+## 快速开始
+
+需要先安装 [uv](https://docs.astral.sh/uv/getting-started/installation/) 和 [just](https://just.systems/man/en/)。
+
+### 安装依赖
+
+```bash
+uv sync
+```
+
+### 选择 PyTorch 版本
+
+默认配置：**Windows → CUDA 12.8（RTX 50 系 / Blackwell）**，**Linux → CPU**。
+
+先运行 `nvidia-smi`，查看右上角的 **CUDA Version**，选对应命令：
+
+| GPU | CUDA Version | 命令 |
+|-----|-------------|------|
+| 无独显 / 纯测试 | — | `just use-cpu` |
+| GTX 10xx ~ RTX 20/30 系旧驱动 | ≤ 11.8 | `just use-cu118` |
+| RTX 20/30/40 系新驱动 | 12.4 | `just use-cu124` |
+| RTX 50 系 (Blackwell) | ≥ 12.8 | `just use-cu128`（默认已配置，首次直接 `uv sync`） |
+
+命令会自动替换配置、清理旧环境并重新安装，无需手动操作。
+
+> [!NOTE]
+> **Windows 文件锁问题**：如果提示无法删除 `.venv`，说明有程序正在占用该目录（常见：VS Code Python 插件、Jupyter、已打开的终端）。
+> 关闭相关程序后重新执行 `just use-*` 即可。
+
+安装完成后验证：
+
+```
+just torch-check
+```
+
 ## 与 XnneHangLab 的关系
 
 如果你想使用完整项目，请前往主仓库：
