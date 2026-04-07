@@ -17,6 +17,8 @@ from xnnehanglab_tts.runtime.config import load_runtime_config
 class GenieRuntimeState:
     loaded_character: str | None = None
     genie_data_dir: str | None = None
+    genie_module: object = None
+    ref_audio_key: tuple[str, str] | None = None
 
 
 _STATE = GenieRuntimeState()
@@ -219,6 +221,8 @@ def load_genie_tts_model_by_name(character_name: str) -> None:
         use_roberta=True,
     )
     _STATE.loaded_character = character_name
+    _STATE.genie_module = genie
+    _STATE.ref_audio_key = None
 
 
 def synthesize_once(
@@ -238,19 +242,24 @@ def synthesize_once(
         raise ValueError("请先提供参考文本")
 
     paths = _load_runtime_paths()
-    genie = _load_genie_module(paths)
+    genie = _STATE.genie_module
+    if genie is None:
+        genie = _load_genie_module(paths)
     total_started_at = time.perf_counter()
     output_path = _build_synthesis_output_path(text, paths)
 
     try:
+        ref_audio_key = (str(ref_audio), normalized_ref_text)
         reference_started_at = time.perf_counter()
-        genie.set_reference_audio(
-            character_name=_STATE.loaded_character,
-            audio_path=str(ref_audio),
-            audio_text=normalized_ref_text,
-            language="auto",
-            use_roberta=True,
-        )
+        if _STATE.ref_audio_key != ref_audio_key:
+            genie.set_reference_audio(
+                character_name=_STATE.loaded_character,
+                audio_path=str(ref_audio),
+                audio_text=normalized_ref_text,
+                language="auto",
+                use_roberta=True,
+            )
+            _STATE.ref_audio_key = ref_audio_key
         reference_elapsed = time.perf_counter() - reference_started_at
         synth_started_at = time.perf_counter()
         genie.tts(
