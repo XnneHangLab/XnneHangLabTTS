@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 from collections.abc import Callable
 from typing import Protocol
@@ -9,88 +8,10 @@ from .models import DownloadStep, DownloadTargetSpec
 EmitEvent = Callable[[dict], None]
 SnapshotDownload = Callable[..., str]
 
-# Matches modelscope tqdm lines of the form:
-#   Downloading [some/file.bin]:  42%|████      | 75.0M/180M [00:30<00:40, 1.02MB/s]
-_RE_TQDM_DOWNLOADING = re.compile(
-    r"Downloading \[(.+?)\]:\s*(\d+)%"
-    r"(?:[^\|]*\|[^\|]*\|\s*([\d.]+\w+)/([\d.]+\w+))?"
-)
-
 
 class DownloadProviderAdapter(Protocol):
     def download(self, *, target: DownloadTargetSpec, step: DownloadStep | None = None) -> str | None:
         ...
-
-
-class _TqdmSpy:
-    """Wrap sys.stderr: forward everything to the real stderr so the console
-    sees all output, and parse tqdm download lines to emit structured
-    file-progress events.  No fd-level redirection — no pipes, no threads.
-    """
-
-    def __init__(self, emit: EmitEvent, target_id: str, real_stderr) -> None:
-        self._emit = emit
-        self._target_id = target_id
-        self._real = real_stderr
-        self._last_percent: dict[str, int] = {}
-        self._buf = ""
-
-    # ---- file-like interface ------------------------------------------------
-
-    def write(self, text: str) -> int:
-        self._real.write(text)
-        try:
-            self._real.flush()
-        except Exception:
-            pass
-        self._buf += text
-        parts = re.split(r"[\r\n]", self._buf)
-        self._buf = parts[-1]
-        for line in parts[:-1]:
-            self._parse(line.strip())
-        return len(text)
-
-    def flush(self) -> None:
-        try:
-            self._real.flush()
-        except Exception:
-            pass
-
-    def isatty(self) -> bool:
-        # Lie to tqdm so it stays in dynamic/interactive mode (uses \r).
-        return True
-
-    @property
-    def encoding(self) -> str:
-        return getattr(self._real, "encoding", "utf-8")
-
-    @property
-    def errors(self) -> str:
-        return getattr(self._real, "errors", "replace")
-
-    # ---- tqdm line parser ---------------------------------------------------
-
-    def _parse(self, line: str) -> None:
-        if not line:
-            return
-        m = _RE_TQDM_DOWNLOADING.search(line)
-        if not m:
-            return
-        desc = m.group(1)
-        percent = int(m.group(2))
-        if self._last_percent.get(desc) == percent:
-            return
-        self._last_percent[desc] = percent
-        event: dict = {
-            "event": "download.file_progress",
-            "target": self._target_id,
-            "desc": desc,
-            "percent": percent,
-        }
-        if m.group(3) and m.group(4):
-            event["downloaded"] = m.group(3)
-            event["total"] = m.group(4)
-        self._emit(event)
 
 
 class ModelscopeDownloadAdapter:
@@ -120,13 +41,7 @@ class ModelscopeDownloadAdapter:
             logger.setLevel(logging.WARNING)
             for handler in logger.handlers:
                 handler.setLevel(logging.WARNING)
-
-            orig_stderr = sys.stderr
-            sys.stderr = _TqdmSpy(self._emit, self._target_id, orig_stderr)
-            try:
-                return snapshot_download(**kwargs)
-            finally:
-                sys.stderr = orig_stderr
+            return snapshot_download(**kwargs)
 
         return _downloader
 
