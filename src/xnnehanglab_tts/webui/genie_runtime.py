@@ -155,6 +155,49 @@ def _load_genie_module(paths):
         raise RuntimeError(f"加载 Genie-TTS 失败: {exc}") from exc
 
 
+def _instrument_langdetect_timing() -> None:
+    """Wrap fast_langdetect._default_detector.detect with timing logs to diagnose spikes."""
+    infer_mod = sys.modules.get("fast_langdetect.infer")
+    if infer_mod is None:
+        return
+    detector = getattr(infer_mod, "_default_detector", None)
+    if detector is None:
+        return
+    original_detect = detector.detect
+    if getattr(original_detect, "_xh_timed", False):
+        return  # already wrapped
+
+    def _timed_detect(text, **kwargs):
+        t0 = time.perf_counter()
+        result = original_detect(text, **kwargs)
+        elapsed = time.perf_counter() - t0
+        if elapsed > 0.05:
+            print(f"INFO: langdetect slow: {elapsed:.3f}s for {text[:20]!r}", flush=True)
+        else:
+            print(f"INFO: langdetect fast: {elapsed:.3f}s", flush=True)
+        return result
+
+    _timed_detect._xh_timed = True
+    detector.detect = _timed_detect
+
+
+def _warmup_langdetect() -> None:
+    """Pre-load the fasttext model so it stays warm in RAM before synthesis begins."""
+    infer_mod = sys.modules.get("fast_langdetect.infer")
+    if infer_mod is None:
+        return
+    detector = getattr(infer_mod, "_default_detector", None)
+    if detector is None:
+        return
+    try:
+        t0 = time.perf_counter()
+        detector.detect("你好")
+        elapsed = time.perf_counter() - t0
+        print(f"INFO: langdetect warmup: {elapsed:.3f}s", flush=True)
+    except Exception as exc:
+        print(f"WARNING: langdetect warmup failed: {exc}", flush=True)
+
+
 def _resolve_character_model_dir(character_name: str, paths) -> Path:
     model_dir = paths.genie_tts_root / character_name
     if not model_dir.is_dir():
@@ -223,6 +266,8 @@ def load_genie_tts_model_by_name(character_name: str) -> None:
     _STATE.loaded_character = character_name
     _STATE.genie_module = genie
     _STATE.ref_audio_key = None
+    _instrument_langdetect_timing()
+    _warmup_langdetect()
 
 
 def synthesize_once(
