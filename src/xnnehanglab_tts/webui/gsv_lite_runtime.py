@@ -353,13 +353,16 @@ def _apply_monkey_patch() -> None:
     if _gsv_lite_monkey_patch_applied:
         return
 
-    # torchaudio 2.11+ defaults to torchcodec as the audio backend on Windows,
-    # which requires FFmpeg DLLs.  When torchcodec DLLs are missing, every
-    # torchaudio.load() call raises ImportError at inference time.
-    # Patch torchaudio.load to use soundfile instead (no FFmpeg required).
+    # On Windows, torchaudio's default backends (torchcodec / ffmpeg / sox_io) all
+    # require native executables or DLLs (FFmpeg, SoX) that are often absent.
+    # Any torchaudio.load() call that falls through to those backends raises
+    # FileNotFoundError: [WinError 2].  Patch unconditionally on Windows, and
+    # also on any platform where the newer torchcodec backend is present.
     try:
+        import sys
         import torchaudio
-        if hasattr(torchaudio, "_torchcodec"):
+        _needs_patch = sys.platform == "win32" or hasattr(torchaudio, "_torchcodec")
+        if _needs_patch:
             import soundfile as _sf
             import torch as _torch
 
@@ -371,7 +374,7 @@ def _apply_monkey_patch() -> None:
             torchaudio.load = _load_via_soundfile
             print(
                 "INFO: gsv-lite: patched torchaudio.load → soundfile "
-                "(torchcodec requires FFmpeg which is unavailable)",
+                "(avoids FFmpeg/SoX subprocess dependency)",
                 flush=True,
             )
     except Exception as exc:
