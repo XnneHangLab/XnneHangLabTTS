@@ -66,6 +66,7 @@ def save_preset(
     ref_audio: str | None,
     ref_text: str | None,
     speaker_audio: str | None = None,
+    params: dict[str, Any] | None = None,
 ) -> None:
     safe_name = name.strip()[:60]
     if not safe_name:
@@ -75,6 +76,7 @@ def save_preset(
         "ref_text": (ref_text or "").strip(),
         "ref_audio": _copy_audio(tab_name, ref_audio, safe_name, "ref"),
         "speaker_audio": _copy_audio(tab_name, speaker_audio, safe_name, "spk"),
+        "params": params or {},
     }
     data[safe_name] = entry
     _save_json(tab_name, data)
@@ -102,15 +104,17 @@ def build_preset_section(
     ref_audio_comp,
     ref_text_comp,
     speaker_audio_comp=None,
+    param_comps: list[tuple[str, Any]] | None = None,
 ) -> None:
     """
-    Render a preset save/load row into the current Gradio block.
+    Render a preset save/load accordion into the current Gradio block.
 
-    Selecting a preset auto-populates ref_audio, ref_text and (if provided)
-    speaker_audio_comp.  Saving copies the audio files into the preset store
-    so they survive Gradio's temp-file cleanup.
+    param_comps: list of (key, gr.Component) for extra numeric/slider fields
+                 to include in the preset (e.g. inference hyperparameters).
+                 Components must already be defined before calling this.
     """
     has_speaker = speaker_audio_comp is not None
+    param_comps = param_comps or []
 
     with gr.Accordion("预设", open=False):
         with gr.Row():
@@ -128,39 +132,55 @@ def build_preset_section(
             save_btn = gr.Button("保存", scale=1, min_width=80)
             delete_btn = gr.Button("删除", scale=1, min_width=80, variant="stop")
 
+    # ── load (on dropdown change) ─────────────────────────────────────────────
     load_outputs = [ref_audio_comp, ref_text_comp]
     if has_speaker:
         load_outputs.append(speaker_audio_comp)
+    for _key, comp in param_comps:
+        load_outputs.append(comp)
 
     def on_select(preset_name: str | None):
         if not preset_name:
             return [gr.update()] * len(load_outputs)
         data = _load_json(tab_name)
         entry = data.get(preset_name, {})
+        saved_params = entry.get("params", {})
         updates = [
             gr.update(value=_resolve_audio(tab_name, entry, "ref_audio")),
             gr.update(value=entry.get("ref_text") or None),
         ]
         if has_speaker:
             updates.append(gr.update(value=_resolve_audio(tab_name, entry, "speaker_audio")))
+        for key, _comp in param_comps:
+            val = saved_params.get(key)
+            updates.append(gr.update(value=val) if val is not None else gr.update())
         return updates
 
     preset_dropdown.change(fn=on_select, inputs=[preset_dropdown], outputs=load_outputs)
 
+    # ── save ──────────────────────────────────────────────────────────────────
     save_inputs = [preset_name_input, ref_audio_comp, ref_text_comp]
     if has_speaker:
         save_inputs.append(speaker_audio_comp)
+    for _key, comp in param_comps:
+        save_inputs.append(comp)
 
     def on_save(name: str, ref_audio, ref_text, *rest):
         name = (name or "").strip()
         if not name:
             return gr.update()
-        spk = rest[0] if rest else None
-        save_preset(tab_name, name, ref_audio, ref_text, spk)
+        idx = 0
+        spk = None
+        if has_speaker:
+            spk = rest[idx]
+            idx += 1
+        params = {key: rest[idx + i] for i, (key, _) in enumerate(param_comps)}
+        save_preset(tab_name, name, ref_audio, ref_text, spk, params)
         return gr.update(choices=list_preset_names(tab_name), value=name)
 
     save_btn.click(fn=on_save, inputs=save_inputs, outputs=[preset_dropdown])
 
+    # ── delete ────────────────────────────────────────────────────────────────
     def on_delete(preset_name: str | None):
         if preset_name:
             delete_preset(tab_name, preset_name)

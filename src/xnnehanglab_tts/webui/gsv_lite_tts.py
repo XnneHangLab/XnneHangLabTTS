@@ -176,8 +176,6 @@ def build_gsv_lite_tab(gr) -> None:
                 label="说话人音频（可选，留空则与参考音频相同）", type="filepath",
             )
 
-        build_preset_section(gr, "gsv-lite", ref_audio_input, ref_text_input, speaker_audio_input)
-
         # ── 共享推理参数 ───────────────────────────────────────────────
         with gr.Accordion("推理参数", open=False):
             with gr.Row():
@@ -202,6 +200,19 @@ def build_gsv_lite_tab(gr) -> None:
             top_k_slider, top_p_slider, temperature_slider,
             repetition_penalty_slider, noise_scale_slider, speed_slider,
         ]
+
+        build_preset_section(
+            gr, "gsv-lite",
+            ref_audio_input, ref_text_input, speaker_audio_input,
+            param_comps=[
+                ("top_k", top_k_slider),
+                ("top_p", top_p_slider),
+                ("temperature", temperature_slider),
+                ("repetition_penalty", repetition_penalty_slider),
+                ("noise_scale", noise_scale_slider),
+                ("speed", speed_slider),
+            ],
+        )
 
         # ── 单句 / 批处理 sub-tabs ────────────────────────────────────
         with gr.Tabs():
