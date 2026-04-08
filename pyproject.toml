@@ -56,7 +56,7 @@ genie-tts = [
 ]
 
 gsv-lite = [
-  "gsv-tts-lite==0.3.8",
+  "gsv-tts-lite",
 ]
 
 qwen-tts = [
@@ -82,6 +82,7 @@ url = "https://download.pytorch.org/whl/cu128"  # SWITCH: just use-cu118/cu124/c
 explicit = true
 
 [tool.uv.sources]
+gsv-tts-lite = { path = "packages/GSV-TTS-Lite", editable = true }
 torch = [
   { index = "pytorch-gpu", marker = "sys_platform == 'win32'" },
   { index = "pytorch-cpu", marker = "sys_platform != 'win32'" },

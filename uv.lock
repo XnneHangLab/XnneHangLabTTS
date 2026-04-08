@@ -426,7 +426,7 @@ wheels = [
 [[package]]
 name = "gsv-tts-lite"
 version = "0.3.8"
-source = { registry = "https://pypi.org/simple" }
+source = { editable = "packages/GSV-TTS-Lite" }
 dependencies = [
     { name = "einops" },
     { name = "future" },
@@ -443,14 +443,31 @@ dependencies = [
     { name = "safetensors" },
     { name = "sounddevice" },
     { name = "soundfile" },
-    { name = "torchcodec" },
     { name = "tqdm" },
     { name = "transformers" },
     { name = "wordsegment" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/c4/d93001288d6060af485c494f23f15c457ada53d393b671b9a9574f8cf676/gsv_tts_lite-0.3.8.tar.gz", hash = "sha256:010f3695fbbfe9e7e9a0db30f8016ef285e801fea4e3502aae97af48d53f2825", size = 87245, upload-time = "2026-03-28T11:48:57.327Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/72/439c760cf620af7c6c7d708c4e8b8b92e3107c5dd1806fef296b8ab67b06/gsv_tts_lite-0.3.8-py3-none-any.whl", hash = "sha256:f94b27dda37e83eeba397ba81dc8eef981592d4c898d8ae5c619c755969243e5", size = 101075, upload-time = "2026-03-28T11:48:55.552Z" },
+
+[package.metadata]
+requires-dist = [
+    { name = "einops" },
+    { name = "future" },
+    { name = "inflect" },
+    { name = "jieba" },
+    { name = "nltk" },
+    { name = "numpy" },
+    { name = "onnxruntime" },
+    { name = "py3langid" },
+    { name = "pyopenjtalk-plus" },
+    { name = "pypinyin" },
+    { name = "pysbd" },
+    { name = "requests" },
+    { name = "safetensors" },
+    { name = "sounddevice" },
+    { name = "soundfile" },
+    { name = "tqdm" },
+    { name = "transformers" },
+    { name = "wordsegment" },
 ]
 
 [[package]]
@@ -1770,17 +1787,6 @@ wheels = [
 ]
 
 [[package]]
-name = "torchcodec"
-version = "0.11.0"
-source = { registry = "https://pypi.org/simple" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e8/c9/2b43de18d7352be57461a80d7fbcc8107a3ca2ad389153a5b85b0f71d445/torchcodec-0.11.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:176208beb6576f673c5ef7c82bec122880041127e8c3f22186e2d961bc089317", size = 4202508, upload-time = "2026-03-24T15:56:15.539Z" },
-    { url = "https://files.pythonhosted.org/packages/c1/c3/d131dec79beaea09f88269ebbfa7fbb99c238ba740112a87c606371c3cd7/torchcodec-0.11.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:5562c28dce8114597116f0884908745c29ce401e4a9d0ae46853cbcd858d4f52", size = 2385509, upload-time = "2026-03-24T15:56:17.196Z" },
-    { url = "https://files.pythonhosted.org/packages/a1/a4/7c43426ab337df4de25b33f5139a0e9affd9851b1e3a86db1c829dab71d7/torchcodec-0.11.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:4f1717eeb9d2c9d4b5e03c37fce90188189ad5231ca7a50c4b3299e3b9d8a106", size = 2526183, upload-time = "2026-03-24T15:56:19.179Z" },
-    { url = "https://files.pythonhosted.org/packages/d2/e7/4575960e23cd3295c99ec417ee706f0da85ce3a8c9039fbbb8d114b27359/torchcodec-0.11.0-cp311-cp311-win_amd64.whl", hash = "sha256:0e3654fae566891273567f1eebe2baeff0b35ee71eaa8884dd7790c4faa2fe32", size = 1915260, upload-time = "2026-03-24T15:56:21.095Z" },
-]
-
-[[package]]
 name = "tqdm"
 version = "4.67.3"
 source = { registry = "https://pypi.org/simple" }
@@ -2012,7 +2018,7 @@ genie-tts = [
     { name = "soxr", specifier = ">=1.0.0" },
     { name = "tokenizers" },
 ]
-gsv-lite = [{ name = "gsv-tts-lite", specifier = "==0.3.8" }]
+gsv-lite = [{ name = "gsv-tts-lite", editable = "packages/GSV-TTS-Lite" }]
 qwen-tts = [
     { name = "faster-qwen3-tts", specifier = ">=0.2.5" },
     { name = "sounddevice", specifier = ">=0.5.2" },
