@@ -73,7 +73,7 @@ def build_parser() -> argparse.ArgumentParser:
     download_parser = subparsers.add_parser("download")
     download_parser.add_argument("target")
     webui_parser = subparsers.add_parser("webui")
-    webui_parser.add_argument("--backend", default="genie-tts", choices=["genie-tts"])
+    webui_parser.add_argument("--backend", default="genie-tts", choices=["genie-tts", "qwen-tts"])
     webui_parser.add_argument("--host", default="0.0.0.0")
     webui_parser.add_argument("--port", type=int, default=7860)
     webui_parser.add_argument("--share", action="store_true")
