@@ -5,6 +5,7 @@ import traceback
 from pathlib import Path
 
 from xnnehanglab_tts.webui import qwen_tts_runtime
+from xnnehanglab_tts.webui.batch_ui import build_batch_section
 
 
 def build_qwen_tts_tab(gr) -> None:
@@ -24,15 +25,10 @@ def build_qwen_tts_tab(gr) -> None:
             print(f"ERROR: qwen-tts load model failed: {exc}", flush=True)
             yield f"加载失败: {exc}"
 
-    def synthesize(
-        text: str,
-        ref_audio_path: str | None,
-        ref_text: str | None,
-    ) -> str:
+    def synthesize(text: str, ref_audio_path: str | None, ref_text: str | None) -> str:
         text = (text or "").strip()
         if not text:
             raise gr.Error("合成文本不能为空")
-
         try:
             output_path = qwen_tts_runtime.synthesize_once(
                 text=text,
@@ -47,13 +43,21 @@ def build_qwen_tts_tab(gr) -> None:
             print(f"ERROR: qwen-tts synthesize failed: {exc}", flush=True)
             raise gr.Error(str(exc)) from exc
 
+    def batch_synthesize(text: str, ref_audio_path: str | None, ref_text: str | None) -> Path:
+        text = (text or "").strip()
+        if not text:
+            raise ValueError("合成文本不能为空")
+        return qwen_tts_runtime.synthesize_once(
+            text=text,
+            ref_audio=Path(ref_audio_path) if ref_audio_path else None,
+            ref_text=ref_text,
+        )
+
     with gr.Tab("Faster-Qwen-TTS"):
+        # ── 模型加载 ──────────────────────────────────────────────────
         with gr.Row():
             status_box = gr.Textbox(
-                label="模型状态",
-                value="未加载",
-                interactive=False,
-                scale=4,
+                label="模型状态", value="未加载", interactive=False, scale=4,
             )
             with gr.Column(scale=1, min_width=120):
                 load_btn = gr.Button("加载模型")
@@ -61,31 +65,40 @@ def build_qwen_tts_tab(gr) -> None:
 
         with gr.Row():
             model_dropdown = gr.Dropdown(
-                label="模型版本",
-                choices=["0.6b", "1.7b"],
-                value="0.6b",
+                label="模型版本", choices=["0.6b", "1.7b"], value="0.6b",
             )
 
+        # ── 共享参考音频（可选）────────────────────────────────────────
         with gr.Row():
-            with gr.Column():
-                text_input = gr.Textbox(
-                    label="合成文本",
-                    placeholder="请输入要合成的文字…",
-                    lines=4,
-                )
-                ref_audio_input = gr.Audio(
-                    label="参考音频（可选）",
-                    type="filepath",
-                )
-                ref_text_input = gr.Textbox(
-                    label="参考文本（与参考音频内容一致，可选）",
-                    lines=2,
-                )
-                synth_btn = gr.Button("合成", variant="primary")
+            ref_audio_input = gr.Audio(
+                label="参考音频（可选）", type="filepath", scale=1,
+            )
+            ref_text_input = gr.Textbox(
+                label="参考文本（与参考音频内容一致，可选）", lines=3, scale=1,
+            )
 
-            with gr.Column():
-                audio_output = gr.Audio(label="合成结果", interactive=False)
+        # ── 单句 / 批处理 sub-tabs ────────────────────────────────────
+        with gr.Tabs():
+            with gr.Tab("单句合成"):
+                with gr.Row():
+                    with gr.Column():
+                        text_input = gr.Textbox(
+                            label="合成文本",
+                            placeholder="请输入要合成的文字…",
+                            lines=4,
+                        )
+                        synth_btn = gr.Button("合成", variant="primary")
+                    with gr.Column():
+                        audio_output = gr.Audio(label="合成结果", interactive=False)
 
+            with gr.Tab("批处理"):
+                build_batch_section(
+                    gr,
+                    batch_synthesize,
+                    [ref_audio_input, ref_text_input],
+                )
+
+        # ── 事件绑定 ──────────────────────────────────────────────────
         load_btn.click(fn=load_model, inputs=[model_dropdown], outputs=status_box)
         refresh_status_btn.click(fn=refresh_status, outputs=status_box)
         synth_btn.click(
