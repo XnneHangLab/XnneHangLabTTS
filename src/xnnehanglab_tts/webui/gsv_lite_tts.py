@@ -44,7 +44,7 @@ def build_gsv_lite_tab(gr) -> None:
             print(f"ERROR: load model failed: {exc}", flush=True)
             yield f"加载失败: {exc}"
 
-    def synthesize_stream(
+    def synthesize_dispatch(
         text: str,
         ref_audio_path: str | None,
         ref_text: str | None,
@@ -55,6 +55,7 @@ def build_gsv_lite_tab(gr) -> None:
         repetition_penalty: float,
         noise_scale: float,
         speed: float,
+        use_streaming: bool,
     ):
         text = (text or "").strip()
         if not text:
@@ -63,21 +64,28 @@ def build_gsv_lite_tab(gr) -> None:
             raise gr.Error("请提供参考音频")
         if not (ref_text or "").strip():
             raise gr.Error("请提供参考文本")
+
+        kw = dict(
+            ref_audio=Path(ref_audio_path),
+            ref_text=ref_text or "",
+            speaker_audio=Path(speaker_audio_path) if speaker_audio_path else None,
+            top_k=int(top_k), top_p=float(top_p), temperature=float(temperature),
+            repetition_penalty=float(repetition_penalty),
+            noise_scale=float(noise_scale), speed=float(speed),
+        )
+
         try:
-            yield from gsv_lite_runtime.stream_synthesize(
-                text=text,
-                ref_audio=Path(ref_audio_path),
-                ref_text=ref_text or "",
-                speaker_audio=Path(speaker_audio_path) if speaker_audio_path else None,
-                top_k=int(top_k), top_p=float(top_p), temperature=float(temperature),
-                repetition_penalty=float(repetition_penalty),
-                noise_scale=float(noise_scale), speed=float(speed),
-            )
+            if use_streaming:
+                for sr, chunk in gsv_lite_runtime.stream_synthesize(text=text, **kw):
+                    yield gr.update(), (sr, chunk)
+            else:
+                output_path = gsv_lite_runtime.synthesize_once(text=text, **kw)
+                yield str(output_path), gr.update(value=None)
         except gr.Error:
             raise
         except Exception as exc:
             traceback.print_exc(file=sys.stdout)
-            print(f"ERROR: gsv-lite stream synthesize failed: {exc}", flush=True)
+            print(f"ERROR: gsv-lite synthesize failed: {exc}", flush=True)
             raise gr.Error(str(exc)) from exc
 
     def batch_synthesize(
@@ -175,6 +183,12 @@ def build_gsv_lite_tab(gr) -> None:
         with gr.Tabs():
             with gr.Tab("单句合成"):
                 with gr.Row():
+                    stream_checkbox = gr.Checkbox(
+                        label="流式播放",
+                        value=False,
+                        info="边生成边播放，降低首字延迟（实验性）",
+                    )
+                with gr.Row():
                     with gr.Column():
                         text_input = gr.Textbox(
                             label="合成文本",
@@ -183,11 +197,13 @@ def build_gsv_lite_tab(gr) -> None:
                         )
                         synth_btn = gr.Button("合成", variant="primary")
                     with gr.Column():
-                        audio_output = gr.Audio(
-                            label="合成结果",
+                        audio_output = gr.Audio(label="合成结果", interactive=False)
+                        audio_stream = gr.Audio(
+                            label="合成结果（流式）",
                             streaming=True,
                             autoplay=True,
                             interactive=False,
+                            visible=False,
                         )
 
             with gr.Tab("批处理"):
@@ -201,8 +217,13 @@ def build_gsv_lite_tab(gr) -> None:
         )
         refresh_status_btn.click(fn=refresh_status, outputs=status_box)
         refresh_chars_btn.click(fn=refresh_character_list, outputs=character_dropdown)
+        stream_checkbox.change(
+            fn=lambda v: (gr.update(visible=not v), gr.update(visible=v)),
+            inputs=[stream_checkbox],
+            outputs=[audio_output, audio_stream],
+        )
         synth_btn.click(
-            fn=synthesize_stream,
-            inputs=[text_input] + shared_inference_inputs,
-            outputs=audio_output,
+            fn=synthesize_dispatch,
+            inputs=[text_input] + shared_inference_inputs + [stream_checkbox],
+            outputs=[audio_output, audio_stream],
         )
