@@ -425,7 +425,7 @@ wheels = [
 
 [[package]]
 name = "gsv-tts-lite"
-version = "0.3.8"
+version = "0.3.10"
 source = { editable = "packages/GSV-TTS-Lite" }
 dependencies = [
     { name = "einops" },
