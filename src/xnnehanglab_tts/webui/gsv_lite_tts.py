@@ -6,6 +6,7 @@ from pathlib import Path
 
 from xnnehanglab_tts.webui import gsv_lite_runtime
 from xnnehanglab_tts.webui.batch_ui import build_batch_section
+from xnnehanglab_tts.webui.preset_ui import build_preset_section
 
 
 def build_gsv_lite_tab(gr) -> None:
@@ -174,6 +175,8 @@ def build_gsv_lite_tab(gr) -> None:
             speaker_audio_input = gr.Audio(
                 label="说话人音频（可选，留空则与参考音频相同）", type="filepath",
             )
+
+        build_preset_section(gr, "gsv-lite", ref_audio_input, ref_text_input, speaker_audio_input)
 
         # ── 共享推理参数 ───────────────────────────────────────────────
         with gr.Accordion("推理参数", open=False):

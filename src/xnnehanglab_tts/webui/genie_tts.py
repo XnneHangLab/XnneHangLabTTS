@@ -9,6 +9,7 @@ from xnnehanglab_tts.webui import genie_runtime
 from xnnehanglab_tts.webui.batch_ui import build_batch_section
 from xnnehanglab_tts.webui.gsv_lite_tts import build_gsv_lite_tab
 from xnnehanglab_tts.webui.qwen_tts import build_qwen_tts_tab
+from xnnehanglab_tts.webui.preset_ui import build_preset_section
 
 
 def _build_genie_tts_tab(gr):
@@ -107,6 +108,8 @@ def _build_genie_tts_tab(gr):
             ref_text_input = gr.Textbox(
                 label="参考文本（与参考音频内容一致）", lines=3, scale=1,
             )
+
+        build_preset_section(gr, "genie-tts", ref_audio_input, ref_text_input)
 
         # ── 单句 / 批处理 sub-tabs ────────────────────────────────────
         with gr.Tabs():

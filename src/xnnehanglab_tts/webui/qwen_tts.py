@@ -6,6 +6,7 @@ from pathlib import Path
 
 from xnnehanglab_tts.webui import qwen_tts_runtime
 from xnnehanglab_tts.webui.batch_ui import build_batch_section
+from xnnehanglab_tts.webui.preset_ui import build_preset_section
 
 
 def build_qwen_tts_tab(gr) -> None:
@@ -76,6 +77,8 @@ def build_qwen_tts_tab(gr) -> None:
             ref_text_input = gr.Textbox(
                 label="参考文本（与参考音频内容一致，可选）", lines=3, scale=1,
             )
+
+        build_preset_section(gr, "qwen-tts", ref_audio_input, ref_text_input)
 
         # ── 单句 / 批处理 sub-tabs ────────────────────────────────────
         with gr.Tabs():
