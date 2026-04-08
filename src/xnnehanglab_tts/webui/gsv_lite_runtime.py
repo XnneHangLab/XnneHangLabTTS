@@ -353,33 +353,6 @@ def _apply_monkey_patch() -> None:
     if _gsv_lite_monkey_patch_applied:
         return
 
-    # On Windows, torchaudio's default backends (torchcodec / ffmpeg / sox_io) all
-    # require native executables or DLLs (FFmpeg, SoX) that are often absent.
-    # Any torchaudio.load() call that falls through to those backends raises
-    # FileNotFoundError: [WinError 2].  Patch unconditionally on Windows, and
-    # also on any platform where the newer torchcodec backend is present.
-    try:
-        import sys
-        import torchaudio
-        _needs_patch = sys.platform == "win32" or hasattr(torchaudio, "_torchcodec")
-        if _needs_patch:
-            import soundfile as _sf
-            import torch as _torch
-
-            def _load_via_soundfile(uri, *_args, **_kwargs):
-                data, sr = _sf.read(str(uri), dtype="float32", always_2d=True)
-                # soundfile: (samples, channels) → torchaudio: (channels, samples)
-                return _torch.from_numpy(data.T.copy()), sr
-
-            torchaudio.load = _load_via_soundfile
-            print(
-                "INFO: gsv-lite: patched torchaudio.load → soundfile "
-                "(avoids FFmpeg/SoX subprocess dependency)",
-                flush=True,
-            )
-    except Exception as exc:
-        print(f"WARNING: gsv-lite: torchaudio.load patch failed: {exc}", flush=True)
-
     try:
         from gsv_tts.GPT_SoVITS.G2P.Japanese.japanese import JapaneseG2P
     except Exception:
