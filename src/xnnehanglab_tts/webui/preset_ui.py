@@ -204,7 +204,7 @@ def build_preset_section(gr, tab_name: str) -> PresetControls:
                 placeholder="输入名称后点保存…",
                 scale=3,
             )
-            save_btn = gr.Button("保存", scale=1, min_width=80)
+            save_btn = gr.Button("保存", scale=1, min_width=80, variant="primary")
             delete_btn = gr.Button("删除", scale=1, min_width=80, variant="stop")
 
     return PresetControls(tab_name, dropdown, name_input, save_btn, delete_btn)

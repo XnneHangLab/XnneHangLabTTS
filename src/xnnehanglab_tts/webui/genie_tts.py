@@ -87,14 +87,14 @@ def _build_genie_tts_tab(gr):
                 label="模型状态", value="未加载", interactive=False, scale=4,
             )
             with gr.Column(scale=1, min_width=120):
-                load_btn = gr.Button("加载模型")
-                refresh_status_btn = gr.Button("刷新状态")
+                load_btn = gr.Button("加载模型", variant="primary")
+                refresh_status_btn = gr.Button("刷新状态", variant="secondary")
 
         with gr.Row():
             character_dropdown = gr.Dropdown(
                 label="角色模型", choices=initial_choices, value=initial_value, scale=4,
             )
-            refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100)
+            refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100, variant="secondary")
 
         with gr.Row():
             onnx_threads_slider = gr.Slider(
@@ -155,8 +155,19 @@ def _build_genie_tts_tab(gr):
 def _build_demo():
     import gradio as gr
 
-    with gr.Blocks(title="XnneHangLab TTS") as demo:
-        gr.Markdown("# XnneHangLab TTS 语音合成")
+    _DARK_MODE_JS = "() => { document.body.classList.add('dark'); }"
+    _TOGGLE_JS = (
+        "() => { document.body.classList.toggle('dark'); }"
+    )
+
+    with gr.Blocks(title="XnneHangLab TTS", js=_DARK_MODE_JS) as demo:
+        with gr.Row():
+            gr.Markdown("# XnneHangLab TTS 语音合成")
+            dark_toggle_btn = gr.Button(
+                "☀ 浅色", size="sm", min_width=80, scale=0,
+            )
+
+        dark_toggle_btn.click(fn=None, js=_TOGGLE_JS)
 
         _build_genie_tts_tab(gr)
         build_gsv_lite_tab(gr)

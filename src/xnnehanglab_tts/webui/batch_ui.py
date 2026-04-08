@@ -35,7 +35,7 @@ def build_batch_section(gr, synthesize_fn: Callable, extra_inputs: list) -> None
         with gr.Group(visible=False) as grp:
             with gr.Row():
                 label_md = gr.Markdown(f"**{i + 1}.** —")
-                regen_btn = gr.Button("↺ 重新生成", size="sm", min_width=100)
+                regen_btn = gr.Button("↺ 重新生成", size="sm", min_width=100, variant="secondary")
             audio_out = gr.Audio(interactive=False, show_label=False)
         slots.append((grp, label_md, audio_out, regen_btn))
 

@@ -61,8 +61,8 @@ def build_qwen_tts_tab(gr) -> None:
                 label="模型状态", value="未加载", interactive=False, scale=4,
             )
             with gr.Column(scale=1, min_width=120):
-                load_btn = gr.Button("加载模型")
-                refresh_status_btn = gr.Button("刷新状态")
+                load_btn = gr.Button("加载模型", variant="primary")
+                refresh_status_btn = gr.Button("刷新状态", variant="secondary")
 
         with gr.Row():
             model_dropdown = gr.Dropdown(

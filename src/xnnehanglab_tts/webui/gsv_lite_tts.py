@@ -149,14 +149,14 @@ def build_gsv_lite_tab(gr) -> None:
                 label="模型状态", value="未加载", interactive=False, scale=4,
             )
             with gr.Column(scale=1, min_width=120):
-                load_btn = gr.Button("加载模型")
-                refresh_status_btn = gr.Button("刷新状态")
+                load_btn = gr.Button("加载模型", variant="primary")
+                refresh_status_btn = gr.Button("刷新状态", variant="secondary")
 
         with gr.Row():
             character_dropdown = gr.Dropdown(
                 label="角色模型", choices=initial_choices, value=initial_value, scale=4,
             )
-            refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100)
+            refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100, variant="secondary")
 
         with gr.Row():
             use_bert_checkbox = gr.Checkbox(
