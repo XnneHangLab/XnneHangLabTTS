@@ -119,6 +119,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "webui":
+        import sys
+        from xnnehanglab_tts.runtime.tty import FakeTtyStderr
+        sys.stderr = FakeTtyStderr(sys.stderr)
         from xnnehanglab_tts.webui.genie_tts import launch as launch_webui
         launch_webui(host=args.host, port=args.port, share=args.share)
         return 0

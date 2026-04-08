@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from .models import DownloadStep, DownloadTargetSpec
+from .tty import FakeTtyStderr
 
 EmitEvent = Callable[[dict], None]
 SnapshotDownload = Callable[..., str]
@@ -12,38 +13,6 @@ SnapshotDownload = Callable[..., str]
 class DownloadProviderAdapter(Protocol):
     def download(self, *, target: DownloadTargetSpec, step: DownloadStep | None = None) -> str | None:
         ...
-
-
-class _FakeTtyStderr:
-    """Minimal sys.stderr shim: lies isatty()=True so tqdm stays enabled
-    and uses \\r-overwrite mode.  Every byte is forwarded unchanged to the
-    real stderr so Rust sees the raw tqdm output and can split on \\r/\\n."""
-
-    def __init__(self, real) -> None:
-        self._real = real
-
-    def write(self, text: str) -> int:
-        return self._real.write(text)
-
-    def flush(self) -> None:
-        try:
-            self._real.flush()
-        except Exception:
-            pass
-
-    def isatty(self) -> bool:
-        return True
-
-    def fileno(self) -> int:
-        return self._real.fileno()
-
-    @property
-    def encoding(self) -> str:
-        return getattr(self._real, "encoding", "utf-8")
-
-    @property
-    def errors(self) -> str:
-        return getattr(self._real, "errors", "replace")
 
 
 class ModelscopeDownloadAdapter:
@@ -75,7 +44,7 @@ class ModelscopeDownloadAdapter:
                 handler.setLevel(logging.WARNING)
 
             orig_stderr = sys.stderr
-            sys.stderr = _FakeTtyStderr(orig_stderr)
+            sys.stderr = FakeTtyStderr(orig_stderr)
             try:
                 return snapshot_download(**kwargs)
             finally:
