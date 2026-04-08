@@ -53,6 +53,9 @@ ROBERTA_FILE_PATTERN = [
 QWEN_TTS_REQUIRED_PATHS = [
     "model.safetensors",
     "speech_tokenizer/model.safetensors",
+    "vocab.json",
+    "merges.txt",
+    "tokenizer_config.json",
 ]
 
 
