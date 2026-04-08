@@ -44,7 +44,7 @@ def build_gsv_lite_tab(gr) -> None:
             print(f"ERROR: load model failed: {exc}", flush=True)
             yield f"加载失败: {exc}"
 
-    def synthesize(
+    def synthesize_stream(
         text: str,
         ref_audio_path: str | None,
         ref_text: str | None,
@@ -55,7 +55,7 @@ def build_gsv_lite_tab(gr) -> None:
         repetition_penalty: float,
         noise_scale: float,
         speed: float,
-    ) -> str:
+    ):
         text = (text or "").strip()
         if not text:
             raise gr.Error("合成文本不能为空")
@@ -64,7 +64,7 @@ def build_gsv_lite_tab(gr) -> None:
         if not (ref_text or "").strip():
             raise gr.Error("请提供参考文本")
         try:
-            output_path = gsv_lite_runtime.synthesize_once(
+            yield from gsv_lite_runtime.stream_synthesize(
                 text=text,
                 ref_audio=Path(ref_audio_path),
                 ref_text=ref_text or "",
@@ -73,12 +73,11 @@ def build_gsv_lite_tab(gr) -> None:
                 repetition_penalty=float(repetition_penalty),
                 noise_scale=float(noise_scale), speed=float(speed),
             )
-            return str(output_path)
         except gr.Error:
             raise
         except Exception as exc:
             traceback.print_exc(file=sys.stdout)
-            print(f"ERROR: synthesize failed: {exc}", flush=True)
+            print(f"ERROR: gsv-lite stream synthesize failed: {exc}", flush=True)
             raise gr.Error(str(exc)) from exc
 
     def batch_synthesize(
@@ -184,7 +183,12 @@ def build_gsv_lite_tab(gr) -> None:
                         )
                         synth_btn = gr.Button("合成", variant="primary")
                     with gr.Column():
-                        audio_output = gr.Audio(label="合成结果", interactive=False)
+                        audio_output = gr.Audio(
+                            label="合成结果",
+                            streaming=True,
+                            autoplay=True,
+                            interactive=False,
+                        )
 
             with gr.Tab("批处理"):
                 build_batch_section(gr, batch_synthesize, shared_inference_inputs)
@@ -198,7 +202,7 @@ def build_gsv_lite_tab(gr) -> None:
         refresh_status_btn.click(fn=refresh_status, outputs=status_box)
         refresh_chars_btn.click(fn=refresh_character_list, outputs=character_dropdown)
         synth_btn.click(
-            fn=synthesize,
+            fn=synthesize_stream,
             inputs=[text_input] + shared_inference_inputs,
             outputs=audio_output,
         )

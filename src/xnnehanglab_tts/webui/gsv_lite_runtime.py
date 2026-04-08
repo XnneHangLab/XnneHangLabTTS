@@ -691,3 +691,38 @@ def synthesize_once(
         flush=True,
     )
     return output_path
+
+
+def stream_synthesize(
+    *,
+    text: str,
+    ref_audio: Path,
+    ref_text: str,
+    speaker_audio: Path | None = None,
+    top_k: int = 15,
+    top_p: float = 1.0,
+    temperature: float = 1.0,
+    repetition_penalty: float = 1.35,
+    noise_scale: float = 0.5,
+    speed: float = 1.0,
+):
+    """Yields (sample_rate, audio_data) chunks for real-time streaming playback."""
+    if _gsv_lite_engine is None:
+        raise RuntimeError("模型尚未加载，请先选择角色并点击「加载模型」")
+
+    spk_audio = speaker_audio or ref_audio
+
+    for clip in _gsv_lite_engine.infer_stream(
+        spk_audio_path=str(spk_audio),
+        prompt_audio_path=str(ref_audio),
+        prompt_audio_text=ref_text.strip(),
+        text=text,
+        top_k=top_k,
+        top_p=top_p,
+        temperature=temperature,
+        repetition_penalty=repetition_penalty,
+        noise_scale=noise_scale,
+        speed=speed,
+        debug=False,
+    ):
+        yield clip.samplerate, clip.audio_data
