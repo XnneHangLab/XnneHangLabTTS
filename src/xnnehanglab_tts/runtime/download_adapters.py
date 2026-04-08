@@ -14,6 +14,38 @@ class DownloadProviderAdapter(Protocol):
         ...
 
 
+class _FakeTtyStderr:
+    """Minimal sys.stderr shim: lies isatty()=True so tqdm stays enabled
+    and uses \\r-overwrite mode.  Every byte is forwarded unchanged to the
+    real stderr so Rust sees the raw tqdm output and can split on \\r/\\n."""
+
+    def __init__(self, real) -> None:
+        self._real = real
+
+    def write(self, text: str) -> int:
+        return self._real.write(text)
+
+    def flush(self) -> None:
+        try:
+            self._real.flush()
+        except Exception:
+            pass
+
+    def isatty(self) -> bool:
+        return True
+
+    def fileno(self) -> int:
+        return self._real.fileno()
+
+    @property
+    def encoding(self) -> str:
+        return getattr(self._real, "encoding", "utf-8")
+
+    @property
+    def errors(self) -> str:
+        return getattr(self._real, "errors", "replace")
+
+
 class ModelscopeDownloadAdapter:
     def __init__(
         self,
@@ -41,7 +73,13 @@ class ModelscopeDownloadAdapter:
             logger.setLevel(logging.WARNING)
             for handler in logger.handlers:
                 handler.setLevel(logging.WARNING)
-            return snapshot_download(**kwargs)
+
+            orig_stderr = sys.stderr
+            sys.stderr = _FakeTtyStderr(orig_stderr)
+            try:
+                return snapshot_download(**kwargs)
+            finally:
+                sys.stderr = orig_stderr
 
         return _downloader
 
