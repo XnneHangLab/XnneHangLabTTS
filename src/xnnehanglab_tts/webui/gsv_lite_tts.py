@@ -148,19 +148,16 @@ def build_gsv_lite_tab(gr) -> None:
             status_box = gr.Textbox(
                 label="模型状态", value="未加载", interactive=False, scale=4,
             )
-            with gr.Column(scale=1, min_width=120):
-                load_btn = gr.Button("加载模型", variant="primary")
-                refresh_status_btn = gr.Button("刷新状态", variant="secondary")
+            load_btn = gr.Button("加载模型", variant="primary", scale=1, min_width=110)
+            refresh_status_btn = gr.Button("刷新状态", variant="secondary", scale=1, min_width=110)
+            refresh_chars_btn = gr.Button("刷新列表", variant="secondary", scale=1, min_width=110)
 
         with gr.Row():
             character_dropdown = gr.Dropdown(
-                label="角色模型", choices=initial_choices, value=initial_value, scale=4,
+                label="角色模型", choices=initial_choices, value=initial_value, scale=3,
             )
-            refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100, variant="secondary")
-
-        with gr.Row():
             use_bert_checkbox = gr.Checkbox(
-                label="使用 BERT", value=False,
+                label="使用 BERT", value=False, scale=4,
                 info="启用 BERT 文本编码（加载时生效，需要更多显存）",
             )
 

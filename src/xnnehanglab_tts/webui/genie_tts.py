@@ -86,19 +86,16 @@ def _build_genie_tts_tab(gr):
             status_box = gr.Textbox(
                 label="模型状态", value="未加载", interactive=False, scale=4,
             )
-            with gr.Column(scale=1, min_width=120):
-                load_btn = gr.Button("加载模型", variant="primary")
-                refresh_status_btn = gr.Button("刷新状态", variant="secondary")
+            load_btn = gr.Button("加载模型", variant="primary", scale=1, min_width=110)
+            refresh_status_btn = gr.Button("刷新状态", variant="secondary", scale=1, min_width=110)
+            refresh_chars_btn = gr.Button("刷新列表", variant="secondary", scale=1, min_width=110)
 
         with gr.Row():
             character_dropdown = gr.Dropdown(
-                label="角色模型", choices=initial_choices, value=initial_value, scale=4,
+                label="角色模型", choices=initial_choices, value=initial_value, scale=3,
             )
-            refresh_chars_btn = gr.Button("刷新列表", scale=1, min_width=100, variant="secondary")
-
-        with gr.Row():
             onnx_threads_slider = gr.Slider(
-                label="ONNX 推理线程数", minimum=1, maximum=16, value=4, step=1,
+                label="ONNX 推理线程数", minimum=1, maximum=16, value=4, step=1, scale=4,
                 info="限制 T2S 解码器使用的 CPU 线程数，可防止 Windows 热降频。加载模型时生效。",
             )
 
