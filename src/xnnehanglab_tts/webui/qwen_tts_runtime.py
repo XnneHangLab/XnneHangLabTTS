@@ -41,14 +41,16 @@ def _resolve_model_source(model_name: str) -> str:
     paths = _load_runtime_paths()
     if model_name == "0.6b":
         local = paths.qwen_tts_0_6b_root
-        hf_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
     else:
         local = paths.qwen_tts_1_7b_root
-        hf_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
 
     if local.exists() and any(local.iterdir()):
         return str(local)
-    return hf_id
+
+    raise RuntimeError(
+        f"Qwen3-TTS-{model_name} 模型未找到（{local}）。"
+        "请先在 Launcher 的 Models 页面下载对应模型。"
+    )
 
 
 def _resolve_device() -> str:
