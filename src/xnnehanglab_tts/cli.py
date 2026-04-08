@@ -9,7 +9,7 @@ from xnnehanglab_tts.runtime.models import CliEnvelope, RuntimeInspection, Verif
 from xnnehanglab_tts.runtime.targets import build_managed_paths, get_download_target
 from xnnehanglab_tts.runtime.verify import verify_target
 
-SUPPORTED_VERIFY_TARGETS = ("genie-base", "gsv-lite", "qwen-tts-0.6b", "qwen-tts-1.7b", "luming-genie-tts-v2-pro-plus")
+SUPPORTED_VERIFY_TARGETS = ("genie-base", "gsv-lite", "qwen-tts-0.6b", "qwen-tts-1.7b", "luming-genie-tts-v2-pro-plus", "luming-gsv-lite-v2-pro-plus")
 
 
 def _config_path_from_env() -> Path | None:
@@ -40,6 +40,7 @@ def build_runtime_inspection() -> RuntimeInspection:
     qwen_tts_0_6b_resource = verify_target(get_download_target("qwen-tts-0.6b", paths))
     qwen_tts_1_7b_resource = verify_target(get_download_target("qwen-tts-1.7b", paths))
     luming_genie_tts_resource = verify_target(get_download_target("luming-genie-tts-v2-pro-plus", paths))
+    luming_gsv_lite_resource = verify_target(get_download_target("luming-gsv-lite-v2-pro-plus", paths))
     available_backends = (
         ["genie-tts"]
         if environment.mode == "cpu"
@@ -59,6 +60,7 @@ def build_runtime_inspection() -> RuntimeInspection:
             "qwen-tts-0.6b": qwen_tts_0_6b_resource,
             "qwen-tts-1.7b": qwen_tts_1_7b_resource,
             "luming-genie-tts-v2-pro-plus": luming_genie_tts_resource,
+            "luming-gsv-lite-v2-pro-plus": luming_gsv_lite_resource,
         },
         latest_message=latest_message,
     )
