@@ -164,6 +164,9 @@ def build_gsv_lite_tab(gr) -> None:
                 info="启用 BERT 文本编码（加载时生效，需要更多显存）",
             )
 
+        # ── 预设（渲染在参考音频上方，事件在后面 wire）─────────────────
+        preset = build_preset_section(gr, "gsv-lite")
+
         # ── 共享参考音频 ───────────────────────────────────────────────
         with gr.Row():
             ref_audio_input = gr.Audio(label="参考音频", type="filepath", scale=1)
@@ -201,9 +204,9 @@ def build_gsv_lite_tab(gr) -> None:
             repetition_penalty_slider, noise_scale_slider, speed_slider,
         ]
 
-        build_preset_section(
-            gr, "gsv-lite",
-            ref_audio_input, ref_text_input, speaker_audio_input,
+        # ── 预设事件绑定（组件全部就绪后）────────────────────────────
+        preset.wire(
+            gr, ref_audio_input, ref_text_input, speaker_audio_input,
             param_comps=[
                 ("top_k", top_k_slider),
                 ("top_p", top_p_slider),

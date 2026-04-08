@@ -69,6 +69,9 @@ def build_qwen_tts_tab(gr) -> None:
                 label="模型版本", choices=["0.6b", "1.7b"], value="0.6b",
             )
 
+        # ── 预设（渲染在参考音频上方，事件在后面 wire）─────────────────
+        preset = build_preset_section(gr, "qwen-tts")
+
         # ── 共享参考音频（可选）────────────────────────────────────────
         with gr.Row():
             ref_audio_input = gr.Audio(
@@ -78,7 +81,7 @@ def build_qwen_tts_tab(gr) -> None:
                 label="参考文本（与参考音频内容一致，可选）", lines=3, scale=1,
             )
 
-        build_preset_section(gr, "qwen-tts", ref_audio_input, ref_text_input)
+        preset.wire(gr, ref_audio_input, ref_text_input)
 
         # ── 单句 / 批处理 sub-tabs ────────────────────────────────────
         with gr.Tabs():

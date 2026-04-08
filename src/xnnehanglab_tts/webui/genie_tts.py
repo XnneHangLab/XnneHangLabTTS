@@ -102,6 +102,9 @@ def _build_genie_tts_tab(gr):
                 info="限制 T2S 解码器使用的 CPU 线程数，可防止 Windows 热降频。加载模型时生效。",
             )
 
+        # ── 预设（渲染在参考音频上方，事件在后面 wire）─────────────────
+        preset = build_preset_section(gr, "genie-tts")
+
         # ── 共享参考音频 ───────────────────────────────────────────────
         with gr.Row():
             ref_audio_input = gr.Audio(label="参考音频", type="filepath", scale=1)
@@ -109,7 +112,7 @@ def _build_genie_tts_tab(gr):
                 label="参考文本（与参考音频内容一致）", lines=3, scale=1,
             )
 
-        build_preset_section(gr, "genie-tts", ref_audio_input, ref_text_input)
+        preset.wire(gr, ref_audio_input, ref_text_input)
 
         # ── 单句 / 批处理 sub-tabs ────────────────────────────────────
         with gr.Tabs():
